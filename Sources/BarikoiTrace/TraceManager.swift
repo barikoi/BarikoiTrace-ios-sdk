@@ -151,7 +151,7 @@ public final class TraceManager: NSObject, TraceManagerProtocol {
         // Kotlin SDK has in LocTraceForegroundService.onDestroy(), documented
         // rather than silently inherited (see the work plan's Phase 0).
         if let tripId = dataStore.getLocalTripId(), mqttClient?.isConnectedNow() == true {
-            mqttClient?.publish(json: TraceManager.completedTripJson(tripId: tripId))
+            mqttClient?.publish(json: TraceLocationPayload.completedTripJson(tripId: tripId))
         }
         dataStore.stopSdkTracking()
         dataStore.clearLocalTrip()
@@ -241,8 +241,9 @@ public final class TraceManager: NSObject, TraceManagerProtocol {
     private func persistOrPublish(_ location: CLLocation) {
         let user = dataStore.getUser()
         let tripId = dataStore.getLocalTripId()
-        let json = TraceManager.locationJson(
-            location: location, userId: user?.userId, companyId: user?.companyId, tripId: tripId
+        let json = TraceLocationPayload.json(
+            location: location, userId: user?.userId, companyId: user?.companyId,
+            userName: user?.name, tripId: tripId
         )
 
         connectMqttIfPossible()
@@ -285,29 +286,6 @@ public final class TraceManager: NSObject, TraceManagerProtocol {
         return (host, UInt16(components.port ?? 1883))
     }
 
-    private static func locationJson(location: CLLocation, userId: String?, companyId: String?, tripId: String?) -> String {
-        var payload: [String: Any] = [
-            "latitude": location.coordinate.latitude,
-            "longitude": location.coordinate.longitude,
-            "bearing": max(location.course, 0),
-            "altitude": location.altitude,
-            "gpx_time": DateTimeUtils.dateTimeLocal(from: location.timestamp),
-            "speed": max(location.speed, 0),
-            "accuracy": location.horizontalAccuracy
-        ]
-        if let userId { payload["user_id"] = userId }
-        if let companyId { payload["company_id"] = companyId }
-        if let tripId {
-            payload["trip_id"] = tripId
-            payload["trip_status"] = "active"
-        }
-        let data = (try? JSONSerialization.data(withJSONObject: payload)) ?? Data()
-        return String(data: data, encoding: .utf8) ?? "{}"
-    }
-
-    private static func completedTripJson(tripId: String) -> String {
-        "{\"trip_id\":\"\(tripId)\",\"trip_status\":\"completed\"}"
-    }
 }
 
 extension TraceManager: TraceMqttStatusDelegate {

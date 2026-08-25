@@ -30,7 +30,22 @@ Kotlin source," not "verified to build."
   facade.
 - **Phase 6 — Unit tests**: `TraceModeTests`, `TraceErrorTests`,
   `DateTimeUtilsTests`, `OfflineLocationStoreTests`, `TraceDataStoreTests`
-  (isolated Keychain/UserDefaults suite name, cleans up in `tearDown`).
+  (isolated Keychain/UserDefaults suite name, cleans up in `tearDown`), and
+  now **`MqttPayloadContractTests`** — the payload-shape contract test the
+  work plan's Phase 6 called for specifically (a doc saying "match the
+  schema" doesn't catch drift; a test does). Payload building was pulled out
+  of `TraceManager` into `TraceLocationPayload` so it's independently
+  testable. Asserts, against the Kotlin `dev-v3` schema audited directly from
+  `MqttManager.kt`/`LocTraceForegroundService.kt` source: exact key set,
+  `gpx_time` is always the UTC string format (never the live-path's
+  epoch-ms number) and identical on every path, numeric field types,
+  negative speed/course clamped to zero, the `company/{c}/{g}/{u}/location`
+  and `device/{u}/status` topic patterns read from `TraceMqttClient`'s own
+  properties (not duplicated string literals), and the completed-trip
+  payload shape. Also closed a real gap this test caught by writing it:
+  the old inline payload builder never included `user_name`, which the
+  Kotlin live-publish path does when known — `TraceLocationPayload` now
+  includes it on every path, closing that gap rather than porting it.
 - **Phase 7 — App Store readiness draft**: `docs/APP_STORE_READINESS.md` —
   purpose-string templates, review-notes guidance, common rejection patterns.
   Still a draft to adapt with the host app's real feature copy, and still

@@ -36,6 +36,11 @@ public final class TraceMqttClient {
 
     public weak var delegate: TraceMqttStatusDelegate?
     public let topic: String
+    /// Last-will-and-testament topic — mirrors `MqttManager.kt`'s
+    /// `device/{deviceId}/status`. Exposed (rather than inlined only in
+    /// `connect()`) so the contract test can assert it against the Kotlin
+    /// pattern from the same source `connect()` actually uses.
+    public let lwtTopic: String
 
     private var mqtt: CocoaMQTT?
     private var isConnected = false
@@ -66,6 +71,7 @@ public final class TraceMqttClient {
         self.mqttUsername = mqttUsername
         self.mqttPassword = mqttPassword
         self.topic = "company/\(companyId)/\(groupId)/\(userId)/location"
+        self.lwtTopic = "device/\(userId)/status"
     }
 
     public func connect() {
@@ -87,7 +93,7 @@ public final class TraceMqttClient {
         client.cleanSession = false
         client.autoReconnect = false // backoff is owned explicitly below, matching MqttManager.kt
         client.willMessage = CocoaMQTTMessage(
-            topic: "device/\(userId)/status", string: "offline", qos: .qos1, retained: true
+            topic: lwtTopic, string: "offline", qos: .qos1, retained: true
         )
         client.delegate = self
 

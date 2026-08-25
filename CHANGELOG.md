@@ -8,7 +8,8 @@
 * `TraceMqttClient` — CocoaMQTT wrapper, same topic/LWT/QoS/backoff policy as `MqttManager.kt`.
 * `TraceBackgroundCoordinator` — true background tracking trigger stack: CLLocationManager background delivery, significant-location-change monitoring (+ relaunch-after-kill handling), BGTaskScheduler periodic flush (actually scheduled, unlike the Kotlin SDK's dormant `LocTraceDataService`).
 * `BarikoiTrace` public facade + `TraceManager` orchestrator.
-* Unit tests: `TraceModeTests`, `TraceErrorTests`, `DateTimeUtilsTests`, `OfflineLocationStoreTests`, `TraceDataStoreTests`.
+* Unit tests: `TraceModeTests`, `TraceErrorTests`, `DateTimeUtilsTests`, `OfflineLocationStoreTests`, `TraceDataStoreTests`, `MqttPayloadContractTests`.
+* `TraceLocationPayload` — MQTT payload builder extracted out of `TraceManager` for testability; now includes `user_name` on every path (a real gap vs. the Kotlin live-publish path, closed rather than ported) and `TraceMqttClient.lwtTopic` exposed for the same reason.
 * CI: `.github/workflows/ci.yml` — xcodebuild build/test against an iOS Simulator destination.
 * `docs/APP_STORE_READINESS.md` — purpose-string drafts, review-notes guidance, common rejection patterns to check before submitting.
 * Not yet compiled/verified — see `docs/STATUS.md`.
