@@ -126,6 +126,17 @@ if BarikoiTrace.isBackgroundTrackingDegraded {
 
 ---
 
+## Example
+
+[`Examples/BasicUsage`](Examples/BasicUsage) — copy-paste-ready SwiftUI
+source covering the full common flow: `AppDelegate` wiring (including the
+easy-to-forget `handleLaunch(options:)` call), permission requests, sign-in,
+start/stop tracking with a trip, live location updates, and the
+`isBackgroundTrackingDegraded` signal. Not a runnable `.xcodeproj` — see
+that folder's own README for why and how to drop it into a fresh project.
+
+---
+
 ## Platform differences from the Android SDK (by design, not oversight)
 
 | Behavior | Android | iOS |

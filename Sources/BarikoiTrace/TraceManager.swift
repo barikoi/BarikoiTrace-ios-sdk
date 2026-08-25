@@ -62,6 +62,30 @@ public final class TraceManager: NSObject, TraceManagerProtocol {
 
     // MARK: - User
 
+    /// Authenticates/creates the user, then opportunistically refreshes the
+    /// remote `TraceMode` settings as a side effect.
+    ///
+    /// **Error-handling decision (was an open question in `docs/STATUS.md`,
+    /// resolved here rather than left pending):** the settings refresh below
+    /// swallows its own failure into a log line, but `getSettingsFromRemote()`
+    /// — the explicit, caller-invoked version of the same fetch — propagates
+    /// errors normally via `throws`. That split is deliberate, not an
+    /// oversight to "fix" toward one behavior everywhere:
+    ///   - Here, the settings fetch is an *implicit* side effect of a
+    ///     successful authentication. A caller asked to authenticate a user,
+    ///     not to fetch settings; failing the whole call because a secondary,
+    ///     best-effort step failed would be surprising, and `TraceDataStore`
+    ///     already has a sane fallback (`TraceMode`'s defaults) for a device
+    ///     that has never received remote settings. This matches
+    ///     `LocTraceManager.kt`'s intent, not just its mechanism.
+    ///   - `getSettingsFromRemote()` is the *explicit* version — a caller
+    ///     invoking it directly is asking specifically for this network call
+    ///     to succeed or fail, so it should see the real error (e.g. to show
+    ///     a "couldn't refresh settings" UI state), not a silently-swallowed
+    ///     one.
+    /// If a host app needs to know the implicit refresh above failed too,
+    /// call `getSettingsFromRemote()` explicitly after `setOrCreateUser`
+    /// rather than changing this method's error behavior.
     public func setOrCreateUser(name: String?, email: String?, phone: String) async throws -> TraceUser {
         guard !phone.isEmpty else { throw TraceError.noDataError() }
         guard let apiKey = dataStore.getApiKey(), !apiKey.isEmpty else { throw TraceError.noKeyError() }
@@ -82,6 +106,7 @@ public final class TraceManager: NSObject, TraceManagerProtocol {
                 let mode = try await apiClient.getCompanySettings(phone: phone)
                 dataStore.setTraceModeWithTiming(mode)
             } catch {
+                // Deliberately swallowed — see the method doc comment above.
                 log(level: "WARN", tag: "TraceManager", message: "Failed to fetch remote settings: \(error)")
             }
         }
@@ -181,6 +206,9 @@ public final class TraceManager: NSObject, TraceManagerProtocol {
         Task { await flushOfflineQueueAndReconnect() }
     }
 
+    /// Explicit settings refresh — unlike the implicit one inside
+    /// `setOrCreateUser`, this one throws on failure rather than swallowing
+    /// it. See `setOrCreateUser`'s doc comment for why the two differ.
     public func getSettingsFromRemote() async throws -> TraceMode {
         guard let user = dataStore.getUser(), let phone = user.phone, !phone.isEmpty else {
             throw TraceError.noUserError()

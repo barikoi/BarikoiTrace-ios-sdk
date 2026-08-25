@@ -46,6 +46,13 @@ Kotlin source," not "verified to build."
   the old inline payload builder never included `user_name`, which the
   Kotlin live-publish path does when known — `TraceLocationPayload` now
   includes it on every path, closing that gap rather than porting it.
+- **Error-handling decision (was an open question, now resolved)**:
+  `setOrCreateUser`'s implicit settings refresh swallows its own failure
+  (matches `LocTraceManager.kt`'s intent — a secondary best-effort step
+  shouldn't fail the primary auth call), while the explicit
+  `getSettingsFromRemote()` propagates errors via `throws`. Documented
+  directly on both methods in `TraceManager.swift` rather than left as a
+  standing question here.
 - **Phase 7 — App Store readiness draft**: `docs/APP_STORE_READINESS.md` —
   purpose-string templates, review-notes guidance, common rejection patterns.
   Still a draft to adapt with the host app's real feature copy, and still
@@ -84,13 +91,13 @@ Kotlin source," not "verified to build."
   pass. This is still the highest-risk open item: only the device-test
   matrix in the work plan's Phase 6 can confirm the actual thing this
   library exists to do.
-- **No consumer example app** — the README's AppDelegate/usage snippets and
-  `docs/APP_STORE_READINESS.md`'s review-notes guidance both assume a real
-  app to point at; neither has been exercised end-to-end.
-- **`getSettingsFromRemote`/`setOrCreateUser` best-effort settings refresh
-  swallows its own errors into a log line** (mirrors `LocTraceManager.kt`
-  intentionally) — worth deciding if that's the right behavior for iOS too,
-  or if callers should see it.
+- **No consumer example app that's actually been built/run** —
+  `Examples/BasicUsage` now has copy-paste-ready `AppDelegate`/`ContentView`
+  source (auth, permissions, start/stop tracking, live updates, degraded
+  status), but it's still source reviewed by inspection, not a project
+  that's been opened and run in Xcode. Dropping it into a fresh Xcode
+  project and running it is the real verification step, same caveat as
+  everything else in this repo.
 
 ## Next concrete step
 
