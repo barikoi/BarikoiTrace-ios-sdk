@@ -53,6 +53,14 @@ Kotlin source," not "verified to build."
   the CI workflow's exact xcodebuild invocation (scheme name resolution for
   a bare SPM package, simulator name/OS availability on the `macos-15`
   runner image) is a first-guess, not a verified-working config.
+  Package **resolution** is no longer a guess, though: `Package.resolved`
+  and `.swiftpm/xcode/...` artifacts showing up in this repo confirm the
+  package was opened in Xcode and SPM resolved it cleanly —
+  `CocoaMQTT 2.4.0` + its transitive deps (`MqttCocoaAsyncSocket 1.0.8`,
+  `Starscream 4.0.8`). That only proves the dependency graph and
+  `Package.swift` are valid, not that the source compiles — the delegate
+  API surface in `TraceMqttClient.swift` still needs a real build to
+  confirm.
 - **No on-device background-execution testing at all** — active movement,
   stationary-for-hours, Low Power Mode, Background App Refresh disabled,
   force-kill → relaunch-via-significant-location-change. None of this is
