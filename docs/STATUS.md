@@ -28,33 +28,42 @@ Kotlin source," not "verified to build."
   `BGTaskScheduler`, actually scheduled — unlike the Kotlin SDK's unscheduled
   `LocTraceDataService`), `TraceManager` (orchestrator), public `BarikoiTrace`
   facade.
-- **Phase 6 (partial) — Unit tests**: `TraceModeTests`, `TraceErrorTests`,
-  `DateTimeUtilsTests`, `OfflineLocationStoreTests`.
+- **Phase 6 — Unit tests**: `TraceModeTests`, `TraceErrorTests`,
+  `DateTimeUtilsTests`, `OfflineLocationStoreTests`, `TraceDataStoreTests`
+  (isolated Keychain/UserDefaults suite name, cleans up in `tearDown`).
+- **Phase 7 — App Store readiness draft**: `docs/APP_STORE_READINESS.md` —
+  purpose-string templates, review-notes guidance, common rejection patterns.
+  Still a draft to adapt with the host app's real feature copy, and still
+  needs checking against Apple's guidance at submission time, not this
+  commit's date.
+- **Phase 8 — CI**: `.github/workflows/ci.yml` — `xcodebuild build`/`test`
+  against an iOS Simulator destination on every push/PR (plain macOS `swift
+  test` doesn't work here since `BackgroundTasks` isn't available outside
+  iOS/iPadOS/tvOS/watchOS). Not yet run for real — the workflow itself is
+  unverified for the same reason everything else is (no toolchain in the
+  authoring environment). First actual run on GitHub will be the first real
+  build signal for this whole package.
 
 ## Not done — required before this is production-ready
 
-- **Never compiled.** First priority: open in Xcode, resolve `CocoaMQTT`,
-  build for a device. Expect small fixes — the CocoaMQTT delegate API in
-  particular was written from memory and needs checking against the resolved
-  package version.
-- **No `TraceDataStoreTests` equivalent.** Keychain-backed storage is harder
-  to unit test cleanly (real Keychain access in test targets needs
-  entitlements); worth a pass once building.
+- **Never compiled, including this CI workflow.** First priority: push to
+  GitHub (or open locally in Xcode) and let the Actions run / build locally.
+  Expect small fixes — the CocoaMQTT delegate API in particular was written
+  from memory and needs checking against the resolved package version, and
+  the CI workflow's exact xcodebuild invocation (scheme name resolution for
+  a bare SPM package, simulator name/OS availability on the `macos-15`
+  runner image) is a first-guess, not a verified-working config.
 - **No on-device background-execution testing at all** — active movement,
   stationary-for-hours, Low Power Mode, Background App Refresh disabled,
   force-kill → relaunch-via-significant-location-change. None of this is
-  simulator-testable. This is the highest-risk gap: the background trigger
-  stack is implemented per the documented design, but "implemented per
-  design" and "reliably delivers true background tracking on real devices
-  across iOS versions" are different claims, and only the device-test matrix
-  in the work plan's Phase 6 can close that gap.
-- **No CI** (Phase 8 in the work plan) — nothing gates PRs yet.
-- **No App Store readiness pass** (Phase 7) — purpose-string copy, Background
-  Modes justification, review-notes demo flow all still need writing and
-  should be checked against Apple's *current* guidance, not this document,
-  before submission.
-- **No consumer example app** — the README's AppDelegate/usage snippets are
-  illustrative, not a tested integration.
+  simulator-testable, so CI passing does **not** mean true background
+  tracking works — it only means the code compiles and the logic unit tests
+  pass. This is still the highest-risk open item: only the device-test
+  matrix in the work plan's Phase 6 can confirm the actual thing this
+  library exists to do.
+- **No consumer example app** — the README's AppDelegate/usage snippets and
+  `docs/APP_STORE_READINESS.md`'s review-notes guidance both assume a real
+  app to point at; neither has been exercised end-to-end.
 - **`getSettingsFromRemote`/`setOrCreateUser` best-effort settings refresh
   swallows its own errors into a log line** (mirrors `LocTraceManager.kt`
   intentionally) — worth deciding if that's the right behavior for iOS too,
@@ -62,6 +71,6 @@ Kotlin source," not "verified to build."
 
 ## Next concrete step
 
-Open the package in Xcode on a Mac, add it to a throwaway test app, and work
-through the build errors — there will be some. That pass will also surface
-whether the CocoaMQTT API assumptions above were correct.
+Push this to GitHub (or open locally in Xcode) and see what the CI workflow
+/ a local build actually says. That's the first real signal on whether the
+CocoaMQTT API assumptions and the xcodebuild CI invocation were correct.

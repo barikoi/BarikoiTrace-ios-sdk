@@ -1,0 +1,55 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+jobs:
+  test:
+    # BackgroundTasks/CoreLocation aren't available on plain macOS `swift
+    # build`/`swift test` — this package must be built for an iOS
+    # destination (simulator is fine for compilation + unit tests; the
+    # on-device background-execution matrix in docs/WORK_PLAN.md is
+    # separate and not something CI can cover).
+    runs-on: macos-15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_16.app/Contents/Developer
+
+      - name: Show available simulators
+        run: xcrun simctl list devices available
+
+      - name: Resolve package dependencies
+        run: xcodebuild -resolvePackageDependencies -scheme BarikoiTrace
+
+      # Plain xcodebuild output rather than piping through xcpretty — one
+      # fewer dependency (a gem install step) that can break CI for reasons
+      # unrelated to this package. Add xcpretty back if the raw log gets
+      # too noisy to work with.
+      - name: Build
+        run: |
+          xcodebuild build \
+            -scheme BarikoiTrace \
+            -destination 'platform=iOS Simulator,name=iPhone 16,OS=latest'
+
+      - name: Test
+        run: |
+          xcodebuild test \
+            -scheme BarikoiTrace \
+            -destination 'platform=iOS Simulator,name=iPhone 16,OS=latest'
+
+  lint:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: SwiftLint (if configured)
+        run: |
+          if command -v swiftlint >/dev/null 2>&1; then
+            swiftlint --strict
+          else
+            echo "swiftlint not installed on this runner image — skipping. Add a .swiftlint.yml and 'brew install swiftlint' step to enable."
+          fi
