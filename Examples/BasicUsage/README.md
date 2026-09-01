@@ -21,8 +21,20 @@ executed.
 4. Add the `Info.plist` keys and Background Modes capabilities from the
    root `README.md`'s "Required app setup" section — this example doesn't
    duplicate that list.
-5. Replace the placeholder API key / MQTT credentials in `AppDelegate.swift`
-   with real ones from your backend.
+5. Create the credentials file — `AppDelegate.swift` reads from it, so the
+   project does not build without it:
+
+   ```sh
+   cp Examples/BasicUsage/Secrets.example.swift Examples/BasicUsage/Secrets.swift
+   # then fill in the real values
+   ```
+
+   `Secrets.swift` is git-ignored, the same arrangement the Android sample
+   uses with `local.properties` → `BuildConfig.API_KEY` /
+   `BuildConfig.MQTT_USERNAME` / `BuildConfig.MQTT_PASSWORD`. If you generate
+   the project with `xcodegen`, re-run it after creating the file — a
+   `.xcodeproj` generated before it exists will not reference it, and the
+   build fails with `Cannot find 'Secrets' in scope`.
 
 ## What this example exercises
 

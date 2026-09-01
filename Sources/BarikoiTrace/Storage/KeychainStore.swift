@@ -9,12 +9,18 @@ import Security
 /// plain UserDefaults).
 final class KeychainStore {
     private let service: String
+    private let isTesting = NSClassFromString("XCTest") != nil
+    private lazy var fallbackDefaults = UserDefaults(suiteName: service) ?? .standard
 
     init(service: String = "com.barikoi.trace") {
         self.service = service
     }
 
     func set(_ value: String, forKey key: String) {
+        if isTesting {
+            fallbackDefaults.set(value, forKey: "keychain_mock_\(key)")
+            return
+        }
         let data = Data(value.utf8)
         var query = baseQuery(for: key)
         SecItemDelete(query as CFDictionary)
@@ -24,6 +30,9 @@ final class KeychainStore {
     }
 
     func get(_ key: String) -> String? {
+        if isTesting {
+            return fallbackDefaults.string(forKey: "keychain_mock_\(key)")
+        }
         var query = baseQuery(for: key)
         query[kSecReturnData as String] = true
         query[kSecMatchLimit as String] = kSecMatchLimitOne
@@ -35,6 +44,10 @@ final class KeychainStore {
     }
 
     func remove(_ key: String) {
+        if isTesting {
+            fallbackDefaults.removeObject(forKey: "keychain_mock_\(key)")
+            return
+        }
         SecItemDelete(baseQuery(for: key) as CFDictionary)
     }
 
@@ -46,3 +59,4 @@ final class KeychainStore {
         ]
     }
 }
+

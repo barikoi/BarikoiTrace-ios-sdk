@@ -134,10 +134,10 @@ This is the part with no clean 1:1 Android mapping and the part most likely to u
 
 | Defect | Source (Kotlin) | Action for iOS |
 |---|---|---|
-| Hardcoded MQTT broker username/password | `MqttManager.kt` | Phase 0 — real auth strategy, and flag Kotlin for the same fix |
-| `LocTraceDataService` implemented but never scheduled | `dev-v3` Android | Phase 5 — schedule `BGTaskScheduler` for real; this is not optional on iOS the way it accidentally became optional on Android |
-| `gpx_time` format differs between live and offline-flush MQTT payloads | `dev-v3` Android | Phase 0 — pick one format, use it everywhere, consider back-porting to Kotlin |
-| Trip `"completed"` event lost on force-kill (no reconciliation) | `LocTraceForegroundService.onDestroy()` | Phase 0 — explicit decision; more likely to matter on iOS given more aggressive OS termination |
+| Hardcoded MQTT broker username/password | `MqttManager.kt` | Phase 0 — real auth strategy. **Back-ported to Kotlin**: `MqttManager` now requires `mqttUsername`/`mqttPassword` (breaking change to `BarikoiTrace.initialize()`), see `BarikoiTrace-android-sdk/docs/SDK_DOCUMENTATION.md` §6 finding #1's update. |
+| `LocTraceDataService` implemented but never scheduled | `dev-v3` Android | Phase 5 — schedule `BGTaskScheduler` for real; this is not optional on iOS the way it accidentally became optional on Android. **Back-ported to Kotlin**: `LocTraceManager` now enqueues it as a unique periodic `WorkManager` job (15-min floor) in `startTracking()`/cancels in `stopTracking()`, see finding #8's update. |
+| `gpx_time` format differs between live and offline-flush MQTT payloads | `dev-v3` Android | Phase 0 — pick one format, use it everywhere. **Back-ported to Kotlin**: `MqttManager.publishLocation` now uses `DateTimeUtils.getDateTimeLocal(...)` everywhere, matching the offline path; the offline-flush path's missing `company_id`/`user_name` fields were also closed, see finding #3's update. |
+| Trip `"completed"` event lost on force-kill (no reconciliation) | `LocTraceForegroundService.onDestroy()` | Phase 0 — explicit decision; more likely to matter on iOS given more aggressive OS termination. Not back-ported — Android's `onDestroy()` gap is unchanged, still open on both platforms. |
 | No visibility into degraded background capability (Low Power Mode, permission downgrade, Background App Refresh off) | N/A — Android doesn't need this | Phase 5 — new capability, not a port; iOS-specific requirement |
 
 ---

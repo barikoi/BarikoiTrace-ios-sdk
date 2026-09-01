@@ -1,0 +1,32 @@
+name: BasicUsage
+options:
+  bundleIdPrefix: com.example
+packages:
+  BarikoiTrace:
+    path: ../../
+targets:
+  BasicUsage:
+    type: application
+    platform: iOS
+    deploymentTarget: "15.0"
+    sources:
+      - path: AppDelegate.swift
+      - path: BasicUsageApp.swift
+      - path: ContentView.swift
+      # Git-ignored; `xcodegen` fails with a clear "file not found" if it is
+      # missing, which is the intended nudge to copy Secrets.example.swift.
+      - path: Secrets.swift
+    dependencies:
+      - package: BarikoiTrace
+        product: BarikoiTrace
+    info:
+      path: Info.plist
+      properties:
+        UILaunchScreen: {}
+        NSLocationWhenInUseUsageDescription: "This app needs your location to provide location-based features."
+        NSLocationAlwaysAndWhenInUseUsageDescription: "This app tracks your location in the background so tracking keeps working when the app isn't open."
+        UIBackgroundModes:
+          - location
+          - processing
+        BGTaskSchedulerPermittedIdentifiers:
+          - com.barikoi.trace.offlineflush

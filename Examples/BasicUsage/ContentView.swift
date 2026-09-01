@@ -39,7 +39,7 @@ struct ContentView: View {
     @State private var statusMessage = ""
 
     var body: some View {
-        NavigationStack {
+        NavigationView {
             Form {
                 Section("1. Authenticate") {
                     TextField("Phone", text: $phone)
@@ -51,7 +51,11 @@ struct ContentView: View {
                 }
 
                 Section("2. Permissions") {
-                    LabeledContent("When In Use", value: statusText)
+                    HStack {
+                        Text("When In Use")
+                        Spacer()
+                        Text(statusText).foregroundStyle(.secondary)
+                    }
                     Button("Request When In Use") { permissions.requestWhenInUse() }
                         .disabled(permissions.authorizationStatus != .notDetermined)
                     Button("Request Always") { permissions.requestAlways() }
@@ -101,16 +105,16 @@ struct ContentView: View {
         }
     }
 
+    @MainActor
     private func signIn() async {
+        print("signIn() called")
         do {
             user = try await BarikoiTrace.setOrCreateUser(name: nil, email: nil, phone: phone)
             statusMessage = "Signed in."
+            print("Signed in successfully")
         } catch {
-            // setOrCreateUser throws for the primary auth failure; a failed
-            // *implicit* settings refresh inside it is swallowed by design
-            // (see TraceManager.setOrCreateUser's doc comment) — this only
-            // fires for a real auth failure.
             statusMessage = "Sign-in failed: \(error)"
+            print("Sign-in failed: \(error)")
         }
     }
 

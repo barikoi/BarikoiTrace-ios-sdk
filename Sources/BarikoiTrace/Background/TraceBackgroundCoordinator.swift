@@ -11,6 +11,13 @@ import UIKit
 public protocol TraceManagerProtocol: AnyObject {
     func handleLocation(_ location: CLLocation)
     func flushOfflineQueueAndReconnect() async
+    /// Waits for a flush already in progress before running its own, instead
+    /// of returning immediately. The background task needs this: the fix it
+    /// just handed to `handleLocation` spawns its own detached flush, so a
+    /// non-waiting call would find the sync claim taken, do nothing, and let
+    /// the task report completion while the real work was still running
+    /// outside the window it was granted.
+    func flushOfflineQueueAndReconnect(waitingForInFlight: Bool) async
     func log(level: String, tag: String, message: String)
 }
 
@@ -46,6 +53,10 @@ public final class TraceBackgroundCoordinator: NSObject {
     public static let processingTaskIdentifier = "com.barikoi.trace.offlineflush"
 
     private let locationEngine: TraceLocationEngine
+    /// Dedicated to the background task's one-shot fetch — see the note in
+    /// `handleProcessingTask`. Must not be the engine driving continuous
+    /// updates.
+    private let oneShotEngine = TraceLocationEngine()
     private let dataStore: TraceDataStore
     private let offlineStore: OfflineLocationStore
     private weak var manager: TraceManagerProtocol?
@@ -65,6 +76,7 @@ public final class TraceBackgroundCoordinator: NSObject {
     /// requires task registration before the app finishes launching.
     public func registerBackgroundTasks(manager: TraceManagerProtocol) {
         self.manager = manager
+        AppState.startObserving()
         BGTaskScheduler.shared.register(
             forTaskWithIdentifier: Self.processingTaskIdentifier,
             using: nil
@@ -78,12 +90,17 @@ public final class TraceBackgroundCoordinator: NSObject {
     /// significant-location-change relaunch after the process was previously
     /// killed and resumes tracking, restoring state entirely from
     /// `TraceDataStore` — no in-memory state is assumed to have survived.
-    public func handleLaunch(options: [AnyHashable: Any]?) {
+    /// - Returns: whether tracking was actually resumed. Callers use this to
+    ///   decide whether to grant resources (the broker permit) that must not
+    ///   outlive a session that never began.
+    @discardableResult
+    public func handleLaunch(options: [AnyHashable: Any]?) -> Bool {
         #if canImport(UIKit)
-        guard options?[UIApplication.LaunchOptionsKey.location] != nil else { return }
+        guard options?[UIApplication.LaunchOptionsKey.location] != nil else { return false }
         #endif
-        guard dataStore.isSdkTracking() else { return }
+        guard dataStore.isSdkTracking() else { return false }
         start(mode: dataStore.getTraceMode())
+        return true
     }
 
     public func start(mode: TraceMode) {
@@ -92,14 +109,31 @@ public final class TraceBackgroundCoordinator: NSObject {
         scheduleNextFlush()
     }
 
+    /// Re-applies a changed `TraceMode` to the live subscription without
+    /// tearing the session down — `LocTraceManager.refreshTracking()`'s role,
+    /// minus the service stop/start Android needs to get there.
+    public func refresh(mode: TraceMode) {
+        locationEngine.refreshLocationUpdates(traceMode: mode)
+    }
+
+    /// Whether the location subscription is actually running, as opposed to
+    /// the persisted "should be tracking" flag. Android reads the real service
+    /// state via `ActivityManager`; this is the equivalent question.
+    public var isEngineRunning: Bool { locationEngine.currentMode != nil }
+
     public func stop() {
         locationEngine.stopLocationUpdates()
         locationEngine.stopMonitoringSignificantLocationChanges()
         BGTaskScheduler.shared.cancel(taskRequestWithIdentifier: Self.processingTaskIdentifier)
     }
 
+    /// Routed through `oneShotEngine`, not the continuous one:
+    /// `requestLocation()` is unsupported on a manager already running
+    /// `startUpdatingLocation()`, and sharing an engine means the one-shot
+    /// continuation swallows the next continuous fix instead of the listener
+    /// receiving it.
     public func requestCurrentLocation() async throws -> CLLocation {
-        try await locationEngine.getCurrentLocation()
+        try await oneShotEngine.getCurrentLocation()
     }
 
     /// Submits (or re-submits) the periodic flush task. Called on `start()`
@@ -122,11 +156,67 @@ public final class TraceBackgroundCoordinator: NSObject {
         // even if this run fails or is cut short by the expiration handler.
         scheduleNextFlush()
 
-        let work = Task {
-            await manager?.flushOfflineQueueAndReconnect()
-            task.setTaskCompleted(success: true)
+        // Armed before the work starts. Assigning it afterwards left a window
+        // in which an expiration cancelled nothing and the task ran past the
+        // budget the OS granted it.
+        let cancellation = TaskCancellationBox()
+        task.expirationHandler = { cancellation.cancel() }
+
+        let work = Task { [weak self] in
+            // Take a fresh fix first, then flush. `LocTraceDataService` (the
+            // Android counterpart) exists precisely to guarantee one fix per
+            // period when the continuous stream is starved; this handler used
+            // to flush only, so a stationary or throttled iOS app produced
+            // *zero* new fixes between wakes. Failure is non-fatal — the flush
+            // below is still worth running.
+            if let self, self.dataStore.isSdkTracking(), !Task.isCancelled {
+                do {
+                    // A *separate* engine: `requestLocation()` is not supported
+                    // on a manager already running `startUpdatingLocation()`,
+                    // and sharing one meant the one-shot continuation swallowed
+                    // the next continuous fix (and any error) instead of the
+                    // listener seeing it.
+                    let location = try await self.oneShotEngine.getCurrentLocation(timeout: 20)
+                    self.manager?.handleLocation(location)
+                } catch {
+                    self.manager?.log(level: "WARN", tag: "TraceBackground", message: "Periodic fix failed: \(error)")
+                }
+            }
+            guard !Task.isCancelled else {
+                // Expired rather than finished — report it honestly so the
+                // scheduler doesn't treat a truncated run as a clean one.
+                task.setTaskCompleted(success: false)
+                return
+            }
+            await self?.manager?.flushOfflineQueueAndReconnect(waitingForInFlight: true)
+            task.setTaskCompleted(success: !Task.isCancelled)
         }
-        task.expirationHandler = { work.cancel() }
+        cancellation.attach(work)
+    }
+
+    /// Bridges `expirationHandler` — which can fire before the `Task` exists —
+    /// to the task itself. A handler that captured `work` directly could not
+    /// be installed until after the task had already started running.
+    private final class TaskCancellationBox {
+        private let lock = NSLock()
+        private var task: Task<Void, Never>?
+        private var cancelledEarly = false
+
+        func attach(_ task: Task<Void, Never>) {
+            lock.lock()
+            let alreadyCancelled = cancelledEarly
+            self.task = task
+            lock.unlock()
+            if alreadyCancelled { task.cancel() }
+        }
+
+        func cancel() {
+            lock.lock()
+            let task = self.task
+            cancelledEarly = true
+            lock.unlock()
+            task?.cancel()
+        }
     }
 
     // MARK: - Degraded-capability visibility — no Android equivalent needed,
@@ -153,5 +243,13 @@ extension TraceBackgroundCoordinator: LocationUpdateListener {
 
     public func onProviderAvailabilityChanged(_ available: Bool) {
         manager?.log(level: "INFO", tag: "TraceBackground", message: "Location provider available: \(available)")
+        // Same post/cancel pair as `LocTraceForegroundService`: tell the user
+        // when tracking has stopped for a reason only they can fix, and take
+        // the notice back down when it resolves.
+        if available {
+            TraceNotifier.clearLocationDisabled()
+        } else {
+            TraceNotifier.showLocationDisabled()
+        }
     }
 }

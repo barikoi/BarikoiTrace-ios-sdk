@@ -5,3 +5,11 @@
 DerivedData/
 .netrc
 .idea/
+
+# Credentials. `Secrets.example.swift` is the committed template; the real
+# file stays local, the same way the Android repo keeps API_KEY /
+# MQTT_USERNAME / MQTT_PASSWORD in `local.properties`.
+Examples/BasicUsage/Secrets.swift
+Secrets.swift
+*.xcconfig
+!Example.xcconfig

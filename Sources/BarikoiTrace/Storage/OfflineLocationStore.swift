@@ -88,11 +88,16 @@ public final class OfflineLocationStore {
         }
     }
 
-    public func deleteBatch(limit: Int = 100) {
+    /// Returns whether the delete actually ran. `@discardableResult` keeps the
+    /// existing call sites valid, but `TraceManager`'s flush loop checks it:
+    /// a silently-failing delete (locked or corrupt DB) left `count()` above
+    /// zero and spun that loop forever.
+    @discardableResult
+    public func deleteBatch(limit: Int = 100) -> Bool {
         queue.sync {
-            guard let db else { return }
+            guard let db else { return false }
             let sql = "DELETE FROM offline_location WHERE id IN (SELECT id FROM offline_location ORDER BY id ASC LIMIT \(limit));"
-            sqlite3_exec(db, sql, nil, nil, nil)
+            return sqlite3_exec(db, sql, nil, nil, nil) == SQLITE_OK
         }
     }
 }

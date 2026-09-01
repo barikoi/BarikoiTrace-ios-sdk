@@ -15,8 +15,16 @@ public final class TraceDataStore {
         static let deviceToken = "bkoi_trace_device_token"
         static let sdkTracking = "bkoi_trace_sdk_tracking"
         static let localTripId = "bkoi_trace_local_trip_id"
+        /// The host app's explicit `setOfflineTracking(_:)` override.
         static let offlineTracking = "bkoi_trace_offline_tracking"
-        static let dataSyncing = "bkoi_trace_data_syncing"
+        /// `TraceMode.offline`, kept on its own key. These used to share
+        /// `offlineTracking`, so every `startTracking`/`setOrCreateUser` (both
+        /// call `setTraceMode*`) silently reverted the host app's explicit
+        /// `setOfflineTracking(false)` — two public APIs fighting over one key.
+        static let modeOfflineSync = "bkoi_trace_mode_offline_sync"
+        /// Legacy — the syncing flag is in-memory now. Kept only so `init`
+        /// can clear a stuck `true` written by an older build.
+        static let legacyDataSyncing = "bkoi_trace_data_syncing"
         static let logging = "bkoi_trace_logging"
         static let broadcasting = "bkoi_trace_broadcasting"
         static let desiredAccuracy = "bkoi_trace_desired_accuracy"
@@ -47,6 +55,10 @@ public final class TraceDataStore {
     public init(suiteName: String = "com.barikoi.trace") {
         self.defaults = UserDefaults(suiteName: suiteName) ?? .standard
         self.keychain = KeychainStore(service: suiteName)
+        // Migration: an older build persisted the flush re-entrancy guard. A
+        // kill mid-flush left it `true` and permanently blocked offline
+        // flushing, so drop any stored value on launch.
+        defaults.removeObject(forKey: Keys.legacyDataSyncing)
     }
 
     // MARK: - API key / MQTT credentials
@@ -129,10 +141,62 @@ public final class TraceDataStore {
     public func clearLocalTrip() { defaults.removeObject(forKey: Keys.localTripId) }
 
     public func setOfflineTracking(_ enabled: Bool) { defaults.set(enabled, forKey: Keys.offlineTracking) }
-    public func isOfflineTracking() -> Bool { defaults.bool(forKey: Keys.offlineTracking) }
 
-    public func setDataSyncing(_ syncing: Bool) { defaults.set(syncing, forKey: Keys.dataSyncing) }
-    public func isDataSyncing() -> Bool { defaults.bool(forKey: Keys.dataSyncing) }
+    /// Defaults to **true** when the host app has never set it explicitly.
+    /// `defaults.bool(forKey:)` returns `false` for an absent key, which used
+    /// to mean a fresh install silently *discarded* every fix produced before
+    /// the MQTT socket finished connecting (see `TraceManager.persistOrPublish`).
+    /// The durable queue is the safe default; an explicit `false` is still
+    /// honored.
+    public func isOfflineTracking() -> Bool {
+        if defaults.object(forKey: Keys.offlineTracking) != nil {
+            return defaults.bool(forKey: Keys.offlineTracking)
+        }
+        if defaults.object(forKey: Keys.modeOfflineSync) != nil {
+            return defaults.bool(forKey: Keys.modeOfflineSync)
+        }
+        return true
+    }
+
+    /// In-memory only, deliberately. This is a re-entrancy guard around a
+    /// single flush run, not durable state: when it lived in UserDefaults, a
+    /// process kill mid-flush left it `true` forever and every subsequent
+    /// `flushOfflineQueueAndReconnect()` early-returned for the lifetime of
+    /// the install.
+    /// `NSLock.withLock` is iOS 16+, this package targets iOS 15 — hence the
+    /// explicit lock/unlock pair.
+    public func setDataSyncing(_ syncing: Bool) {
+        Self.syncLock.lock()
+        defer { Self.syncLock.unlock() }
+        Self.dataSyncing = syncing
+    }
+
+    public func isDataSyncing() -> Bool {
+        Self.syncLock.lock()
+        defer { Self.syncLock.unlock() }
+        return Self.dataSyncing
+    }
+
+    /// Compare-and-set entry point for the flush guard. `isDataSyncing()`
+    /// followed by `setDataSyncing(true)` is check-then-act across two
+    /// separately-locked calls, and there are three concurrent callers of
+    /// `flushOfflineQueueAndReconnect()` (public API, the `.connected`
+    /// delegate, and the `BGProcessingTask`), so two runs could both pass the
+    /// check and then have the first to finish clear the flag for both.
+    /// Returns `true` only to the caller that actually claimed the run.
+    public func beginDataSyncIfIdle() -> Bool {
+        Self.syncLock.lock()
+        defer { Self.syncLock.unlock() }
+        guard !Self.dataSyncing else { return false }
+        Self.dataSyncing = true
+        return true
+    }
+
+    /// Static so the flag is shared across `TraceDataStore` instances
+    /// (`TraceManager` and `TraceApiClient` each hold one) — a per-instance
+    /// flag would not actually guard anything.
+    private static let syncLock = NSLock()
+    private static var dataSyncing = false
 
     public func setLogging(_ enabled: Bool) { defaults.set(enabled, forKey: Keys.logging) }
     public func isLogging() -> Bool { defaults.bool(forKey: Keys.logging) }
@@ -151,6 +215,11 @@ public final class TraceDataStore {
         defaults.set(mode.pingSyncInterval, forKey: Keys.pingSyncInterval)
         defaults.set(mode.trackingMode.rawValue, forKey: Keys.trackingType)
         defaults.set(mode.debug, forKey: Keys.debug)
+        // `getTraceMode()` reads `offline` back out, but this method never
+        // wrote it — a mode built with `.setOfflineSync(false)` was silently
+        // ignored. Written and read on the same key now, and that key is the
+        // mode's own, not the host app's override.
+        defaults.set(mode.offline, forKey: Keys.modeOfflineSync)
     }
 
     public func setTraceModeWithTiming(_ mode: TraceMode) {
@@ -168,12 +237,21 @@ public final class TraceDataStore {
             builder = TraceMode.Builder()
                 .setAccuracyFilter(defaults.object(forKey: Keys.accuracyFilter) != nil
                     ? defaults.integer(forKey: Keys.accuracyFilter) : 200)
-                .setDistanceFilter(distanceFilter)
-                .setUpdateInterval(updateInterval)
-                .setOfflineSync(defaults.object(forKey: Keys.offlineTracking) != nil
-                    ? defaults.bool(forKey: Keys.offlineTracking) : true)
+                .setOfflineSync(defaults.object(forKey: Keys.modeOfflineSync) != nil
+                    ? defaults.bool(forKey: Keys.modeOfflineSync) : true)
                 .setPingSyncInterval(defaults.integer(forKey: Keys.pingSyncInterval))
                 .setDesiredAccuracy(.fromString(defaults.string(forKey: Keys.desiredAccuracy)))
+            // `updateInterval` and `distanceFilter` are alternatives, and zero
+            // means "not this axis". The builder floors them (5s / 10m), so
+            // calling the setters unconditionally turned a stored 0 into a
+            // live value: a `.passive` mode (interval 0, distance 100)
+            // round-tripped as interval 5, and `.active` (interval 5,
+            // distance 0) came back distance-gated at 10m. Harmless while the
+            // engine applied `distanceFilter` unconditionally; now that the
+            // engine honors the interval/distance split, it would silently
+            // convert every stored mode into the wrong one.
+            if updateInterval != 0 { builder.setUpdateInterval(updateInterval) }
+            if distanceFilter != 0 { builder.setDistanceFilter(distanceFilter) }
         } else {
             builder = TraceMode.Builder()
                 .setAccuracyFilter(200)
@@ -197,8 +275,12 @@ public final class TraceDataStore {
     public func getUpdateInterval() -> Int { defaults.integer(forKey: Keys.updateInterval) }
 
     public func clearTraceMode() {
+        // `modeOfflineSync` belongs to the mode, so it clears with it —
+        // otherwise a mode with `offline == false` would keep the durable
+        // queue disabled after the mode itself was cleared.
         [Keys.desiredAccuracy, Keys.updateInterval, Keys.distanceFilter, Keys.stopDuration,
-         Keys.accuracyFilter, Keys.pingSyncInterval, Keys.trackingType, Keys.debug]
+         Keys.accuracyFilter, Keys.pingSyncInterval, Keys.trackingType, Keys.debug,
+         Keys.modeOfflineSync]
             .forEach(defaults.removeObject)
     }
 

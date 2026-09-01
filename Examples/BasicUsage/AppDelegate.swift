@@ -10,14 +10,16 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
     ) -> Bool {
+        // Values live in `Secrets.swift`, which is git-ignored — copy
+        // `Secrets.example.swift` to create it. Same arrangement as the
+        // Android sample's `local.properties` → `BuildConfig.*`. Broker
+        // credentials are issued by your backend per app and per environment;
+        // see docs/WORK_PLAN.md §2 (Phase 0) for why the Kotlin SDK's
+        // hardcoded-constant pattern isn't carried over here.
         BarikoiTrace.initialize(
-            apiKey: "YOUR_BARIKOI_API_KEY",
-            // Issued by your backend per-app/per-environment — never hardcode
-            // broker credentials in the shipped binary. See docs/WORK_PLAN.md
-            // §2 (Phase 0) for why the Kotlin SDK's hardcoded-constant
-            // pattern isn't carried over here.
-            mqttUsername: "YOUR_MQTT_USERNAME",
-            mqttPassword: "YOUR_MQTT_PASSWORD"
+            apiKey: Secrets.barikoiApiKey,
+            mqttUsername: Secrets.mqttUsername,
+            mqttPassword: Secrets.mqttPassword
         )
 
         // Required. Detects a significant-location-change relaunch after the

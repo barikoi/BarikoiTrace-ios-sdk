@@ -46,6 +46,15 @@ public enum BarikoiTrace {
 
     public static func setBaseURL(_ url: String) { TraceManager.shared.setBaseURL(url) }
     public static func setMqttURL(_ url: String) { TraceManager.shared.setMqttURL(url) }
+
+    /// Overrides the MQTT client-id prefix (default `"iOSClient-"`; the
+    /// Android SDK uses `"AndroidClient-"`). Only needed when the broker's ACL
+    /// authorizes by client-id pattern rather than by credentials alone — the
+    /// symptom is `notAuthorized` on a CONNECT whose username and password are
+    /// correct. Call before `startTracking`.
+    public static func setMqttClientIdPrefix(_ prefix: String) {
+        TraceManager.shared.setMqttClientIdPrefix(prefix)
+    }
     public static func resetURLs() { TraceManager.shared.resetURLs() }
 
     // MARK: - User
@@ -63,6 +72,37 @@ public enum BarikoiTrace {
     public static func isLocationSettingsOn() -> Bool { SystemSettingsManager.checkLocationSettings() }
     public static func hasBackgroundPermission() -> Bool { SystemSettingsManager.hasAlwaysAuthorization() }
 
+    /// Prompts for When In Use location authorization —
+    /// `requestLocationPermissions(activity)`'s counterpart. The SDK could
+    /// already do this internally but never exposed it, so host apps had to
+    /// stand up their own `CLLocationManager` purely to ask.
+    public static func requestLocationPermissions() {
+        TraceManager.shared.requestAuthorization(always: false)
+    }
+
+    /// Prompts for Always authorization —
+    /// `requestBackgroundLocationPermission(activity)`'s counterpart. iOS only
+    /// grants this after When In Use has been granted, so call
+    /// `requestLocationPermissions()` first.
+    public static func requestBackgroundLocationPermission() {
+        TraceManager.shared.requestAuthorization(always: true)
+    }
+
+    /// Opens this app's Settings page. Stands in for
+    /// `requestLocationServices(activity)`: iOS exposes no deep link to the
+    /// system Location Services toggle, so the app's own settings page — which
+    /// carries its Location row — is where the user is sent.
+    @discardableResult
+    public static func openAppSettings() -> Bool { SystemSettingsManager.openAppSettings() }
+
+    // No counterparts to `requestNotificationPermission`,
+    // `requestDisableBatteryOptimization`, `isBatteryOptimizationEnabled`,
+    // `checkAppServicePermission`, `openAutostartSettings` or
+    // `isGoogleAvailable`: all six exist to work around Android OEM process
+    // killing and the foreground-service notification, neither of which this
+    // platform has. `isBackgroundTrackingDegraded` below answers the question
+    // they were actually asked for.
+
     // MARK: - Tracking
 
     public static func setTraceMode(_ mode: TraceMode) { TraceManager.shared.setTraceMode(mode) }
@@ -72,10 +112,26 @@ public enum BarikoiTrace {
     }
 
     public static func stopTracking() { TraceManager.shared.stopTracking() }
+
+    /// Re-applies the stored `TraceMode` to a running session —
+    /// `LocTraceManager.refreshTracking()`. `setTraceMode(_:)` already does
+    /// this automatically while tracking; this is for callers that changed the
+    /// mode through some other path.
+    public static func refreshTracking() { TraceManager.shared.refreshTracking() }
+
     public static func isLocationTracking() -> Bool { TraceManager.shared.isLocationTracking() }
     public static func setOfflineTracking(_ enabled: Bool) { TraceManager.shared.setOfflineTracking(enabled) }
     public static func setLoggingEnabled(_ enabled: Bool) { TraceManager.shared.setLoggingEnabled(enabled) }
     public static func setBroadcastingEnabled(_ enabled: Bool) { TraceManager.shared.setBroadcastingEnabled(enabled) }
+
+    /// Whether the SDK posts a local notification when location services go
+    /// off — the port of Android's unconditional "Need to turn on location
+    /// service" notification. On by default; the first post asks for
+    /// notification authorization. Set `false` before `startTracking` to
+    /// suppress both the notification and the prompt.
+    public static func setLocationDisabledNotificationEnabled(_ enabled: Bool) {
+        TraceNotifier.isEnabled = enabled
+    }
 
     // MARK: - Trips
     //

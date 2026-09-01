@@ -179,10 +179,91 @@ final class MqttPayloadContractTests: XCTestCase {
 
     // MARK: - Completed-trip payload
 
-    func testCompletedTripPayloadShape() {
-        let decoded = decode(TraceLocationPayload.completedTripJson(tripId: "trip-42"))
+    /// The Kotlin SDK publishes the *full* location payload on trip
+    /// completion (`LocTraceForegroundService.onDestroy` →
+    /// `MqttManager.publishLocation(location, tripId, "completed")`), not a
+    /// bare id pair. This asserts the ported shape: every live-path field,
+    /// plus `trip_id` and `trip_status: "completed"`.
+    func testCompletedTripPayloadCarriesFullLocation() {
+        let location = CLLocation(
+            coordinate: CLLocationCoordinate2D(latitude: 23.8103, longitude: 90.4125),
+            altitude: 12,
+            horizontalAccuracy: 8,
+            verticalAccuracy: 8,
+            course: 90,
+            speed: 3,
+            timestamp: Date()
+        )
+        let decoded = decode(TraceLocationPayload.completedTripJson(
+            tripId: "trip-42", location: location,
+            userId: "user-1", companyId: "company-1", userName: "Rilus"
+        ))
+
         XCTAssertEqual(decoded["trip_id"] as? String, "trip-42")
         XCTAssertEqual(decoded["trip_status"] as? String, "completed")
-        XCTAssertEqual(decoded.count, 2)
+        XCTAssertEqual(decoded["user_id"] as? String, "user-1")
+        XCTAssertEqual(decoded["company_id"] as? String, "company-1")
+        XCTAssertEqual(decoded["user_name"] as? String, "Rilus")
+        XCTAssertEqual(decoded["latitude"] as? Double, 23.8103)
+        XCTAssertEqual(decoded["longitude"] as? Double, 90.4125)
+        XCTAssertNotNil(decoded["gpx_time"] as? String)
+        XCTAssertNotNil(decoded["speed"])
+        XCTAssertNotNil(decoded["accuracy"])
+    }
+
+    /// `stopTracking()` can be reached before any fix has arrived. The message
+    /// must still be attributable, so identity fields are sent without
+    /// coordinates rather than the message being skipped.
+    func testCompletedTripPayloadWithoutLocationKeepsIdentity() {
+        let decoded = decode(TraceLocationPayload.completedTripJson(
+            tripId: "trip-42", location: nil,
+            userId: "user-1", companyId: "company-1", userName: nil
+        ))
+
+        XCTAssertEqual(decoded["trip_id"] as? String, "trip-42")
+        XCTAssertEqual(decoded["trip_status"] as? String, "completed")
+        XCTAssertEqual(decoded["user_id"] as? String, "user-1")
+        XCTAssertEqual(decoded["company_id"] as? String, "company-1")
+        XCTAssertNil(decoded["latitude"])
+        XCTAssertNil(decoded["user_name"])
+    }
+
+    // MARK: - Flush-time backfill
+
+    /// Mirrors `flushOfflineData()`'s backfill pass: a row queued before
+    /// authentication gets `user_id`/`company_id`/`user_name` filled in on the
+    /// way out, so it is never published unattributed.
+    func testBackfillAddsMissingIdentityFields() {
+        let queued = #"{"latitude":23.8,"longitude":90.4}"#
+        let decoded = decode(TraceLocationPayload.backfilled(
+            json: queued, userId: "user-1", companyId: "company-1", userName: "Rilus"
+        ))
+
+        XCTAssertEqual(decoded["user_id"] as? String, "user-1")
+        XCTAssertEqual(decoded["company_id"] as? String, "company-1")
+        XCTAssertEqual(decoded["user_name"] as? String, "Rilus")
+        XCTAssertEqual(decoded["latitude"] as? Double, 23.8)
+    }
+
+    /// Values already on the row win — a fix written while user A was signed
+    /// in must not be re-attributed to user B at flush time.
+    func testBackfillNeverOverwritesExistingValues() {
+        let queued = #"{"user_id":"original","latitude":23.8}"#
+        let decoded = decode(TraceLocationPayload.backfilled(
+            json: queued, userId: "replacement", companyId: "company-1", userName: nil
+        ))
+
+        XCTAssertEqual(decoded["user_id"] as? String, "original")
+        XCTAssertEqual(decoded["company_id"] as? String, "company-1")
+    }
+
+    func testBackfillLeavesUnparseableRowsUntouched() {
+        let garbage = "not json"
+        XCTAssertEqual(
+            TraceLocationPayload.backfilled(
+                json: garbage, userId: "user-1", companyId: nil, userName: nil
+            ),
+            garbage
+        )
     }
 }

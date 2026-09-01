@@ -121,6 +121,16 @@ public final class TraceApiClient {
             throw TraceError.networkError()
         }
 
+        // Request/response tracing, the counterpart to Kotlin's
+        // `HttpLoggingInterceptor`. That one runs at `Level.BODY`, which puts
+        // the raw `api_key` into logcat on every call — deliberately not
+        // reproduced. Method, path and status carry the diagnostic value; the
+        // bodies do not.
+        TraceManager.shared.log(
+            level: "DEBUG", tag: "TraceApi",
+            message: "POST \(path) → \((response as? HTTPURLResponse)?.statusCode ?? -1) (\(data.count) bytes)"
+        )
+
         guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
             let code = (response as? HTTPURLResponse)?.statusCode ?? -1
             throw TraceError(code: "SERVER", message: "Server error: \(code)")

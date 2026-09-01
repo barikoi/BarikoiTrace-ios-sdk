@@ -20,6 +20,11 @@ final class TraceDataStoreTests: XCTestCase {
         store.resetURLs()
         store.stopSdkTracking()
         store.clearLocalTrip()
+        // `clearTraceModeWithTiming`, not `clearTraceMode`: the timing keys
+        // are what the tracking window reads, and a window left behind by one
+        // test leaks into the next. Cases pass today only because the
+        // alphabetical order happens to be favorable.
+        store.clearTraceModeWithTiming()
         store = nil
         super.tearDown()
     }
