@@ -11,7 +11,7 @@ First tagged release. Consume via SPM:
 * `TraceMode`, `TraceUser`, `TraceError` — field-for-field parity with the Kotlin models.
 * `TraceApiClient` — `/sdk/authenticate` and `/sdk/company/settings`, async/await.
 * `TraceLocationEngine` — CLLocationManager wrapper, continuous + one-shot fetch.
-* `OfflineLocationStore` — SQLite3-backed durable offline queue (batch-of-100), fixes the in-memory-buffer gap found in the Flutter package review.
+* `OfflineLocationStore` — SQLite3-backed durable offline queue (batch-of-100). Survives process death by construction, rather than buffering in memory.
 * `TraceMqttClient` — CocoaMQTT wrapper, same topic/LWT/QoS/backoff policy as `MqttManager.kt`.
 * `TraceBackgroundCoordinator` — true background tracking trigger stack: CLLocationManager background delivery, significant-location-change monitoring (+ relaunch-after-kill handling), BGTaskScheduler periodic flush (actually scheduled, unlike the Kotlin SDK's dormant `LocTraceDataService`).
 * `BarikoiTrace` public facade + `TraceManager` orchestrator.

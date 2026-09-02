@@ -7,9 +7,9 @@ import SQLite3
 /// package's only external dependency the MQTT client — swap freely if the
 /// team prefers a higher-level wrapper.
 ///
-/// This exists specifically to avoid the barikoi_trace Flutter package's
-/// biggest gap: an in-memory-only offline buffer that loses everything on
-/// process death. Every row here survives app termination.
+/// Durability is the whole point: an in-memory-only buffer loses every
+/// queued fix on process death, which on iOS is routine rather than
+/// exceptional. Every row here survives app termination.
 public final class OfflineLocationStore {
     public static let shared = OfflineLocationStore()
 

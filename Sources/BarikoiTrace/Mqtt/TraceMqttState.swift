@@ -1,6 +1,6 @@
-/// Mirrors the Kotlin SDK's connection-state shape — and actually emits
-/// `.reconnecting` (the Dart package's equivalent enum value was dead code;
-/// don't repeat that here).
+/// Mirrors the Kotlin SDK's connection-state shape. Every case here is
+/// actually emitted — `.reconnecting` included; a state value nothing ever
+/// publishes is worse than no state value at all.
 public enum TraceMqttState: String, Sendable {
     case disconnected
     case connecting

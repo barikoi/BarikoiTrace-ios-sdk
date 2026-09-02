@@ -1,6 +1,6 @@
 # iOS Native Library — Work Plan
 
-Mirrors `barikoitrace` (Android, `dev-v3`, Kotlin) feature-for-feature in Swift, with true background location tracing as the primary design constraint. No Flutter/Dart scope in this plan — this is a standalone native iOS library, same relationship to a future Flutter bridge as `barikoitrace` already has today (consumable on its own, bridgeable later).
+Mirrors `barikoitrace` (Android, `dev-v3`, Kotlin) feature-for-feature in Swift, with true background location tracing as the primary design constraint. Scope is a standalone native iOS library — consumable directly by any iOS app, and bridgeable later by any cross-platform wrapper that wants it, the same way `barikoitrace` already is.
 
 Reference: `docs/SDK_DOCUMENTATION.md` in this repo (dev-v3 feature/API audit) — every phase below maps to specific Kotlin files from that doc.
 

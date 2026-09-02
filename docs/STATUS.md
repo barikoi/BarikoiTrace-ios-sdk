@@ -23,8 +23,7 @@ before any host app ships against this SDK.
 - **Phase 2 — Location engine**: `TraceLocationEngine` (continuous +
   one-shot fetch, background-delivery flags set).
 - **Phase 3 — Offline queue**: `OfflineLocationStore` (SQLite3, batch-of-100,
-  survives process death by construction — this is the fix for the Flutter
-  package's in-memory-buffer gap).
+  survives process death by construction rather than buffering in memory).
 - **Phase 4 — MQTT client**: `TraceMqttClient` (CocoaMQTT wrapper, same
   topic/LWT/QoS as Kotlin, same exponential backoff policy).
 - **Phase 5 — Background orchestration**: `TraceBackgroundCoordinator`
@@ -65,28 +64,12 @@ before any host app ships against this SDK.
 - **Phase 8 — CI**: `.github/workflows/ci.yml` — `xcodebuild build`/`test`
   against an iOS Simulator destination on every push/PR (plain macOS `swift
   test` doesn't work here since `BackgroundTasks` isn't available outside
-  iOS/iPadOS/tvOS/watchOS). Not yet run for real — the workflow itself is
-  unverified for the same reason everything else is (no toolchain in the
-  authoring environment). First actual run on GitHub will be the first real
-  build signal for this whole package.
+  iOS/iPadOS/tvOS/watchOS). `.github/workflows/release.yml` re-runs the same
+  build/test on a tag push, plus a fresh-checkout consumer resolve, before
+  drafting the GitHub Release.
 
 ## Not done — required before this is production-ready
 
-- **Never compiled, including this CI workflow.** First priority: push to
-  GitHub (or open locally in Xcode) and let the Actions run / build locally.
-  Expect small fixes — the CocoaMQTT delegate API in particular was written
-  from memory and needs checking against the resolved package version, and
-  the CI workflow's exact xcodebuild invocation (scheme name resolution for
-  a bare SPM package, simulator name/OS availability on the `macos-15`
-  runner image) is a first-guess, not a verified-working config.
-  Package **resolution** is no longer a guess, though: `Package.resolved`
-  and `.swiftpm/xcode/...` artifacts showing up in this repo confirm the
-  package was opened in Xcode and SPM resolved it cleanly —
-  `CocoaMQTT 2.4.0` + its transitive deps (`MqttCocoaAsyncSocket 1.0.8`,
-  `Starscream 4.0.8`). That only proves the dependency graph and
-  `Package.swift` are valid, not that the source compiles — the delegate
-  API surface in `TraceMqttClient.swift` still needs a real build to
-  confirm.
 - **No on-device background-execution testing at all** — active movement,
   stationary-for-hours, Low Power Mode, Background App Refresh disabled,
   force-kill → relaunch-via-significant-location-change. None of this is
@@ -95,16 +78,11 @@ before any host app ships against this SDK.
   pass. This is still the highest-risk open item: only the device-test
   matrix in the work plan's Phase 6 can confirm the actual thing this
   library exists to do.
-- **No consumer example app that's actually been built/run** —
-  `Examples/BasicUsage` now has copy-paste-ready `AppDelegate`/`ContentView`
-  source (auth, permissions, start/stop tracking, live updates, degraded
-  status), but it's still source reviewed by inspection, not a project
-  that's been opened and run in Xcode. Dropping it into a fresh Xcode
-  project and running it is the real verification step, same caveat as
-  everything else in this repo.
+- **No long-running field validation.** Unit tests and a build pass cover
+  shape and logic. They say nothing about a tracker left running for a work
+  shift on a real phone in a real pocket.
 
 ## Next concrete step
 
-Push this to GitHub (or open locally in Xcode) and see what the CI workflow
-/ a local build actually says. That's the first real signal on whether the
-CocoaMQTT API assumptions and the xcodebuild CI invocation were correct.
+Run the on-device matrix in the work plan's Phase 6 against a host app
+depending on the `0.1.0` tag, then fold the findings back here.
