@@ -20,6 +20,7 @@ on both platforms.
 - [Installation](#installation)
 - [How it works](#how-it-works)
 - [Required app setup](#required-app-setup)
+- [Where to put your API key](#where-to-put-your-api-key)
 - [Quick start](#quick-start)
 - [API reference](#api-reference)
 - [Tracking modes](#tracking-modes)
@@ -156,11 +157,107 @@ way, and the relaunch path depends on it.
 
 ### 4. Credentials
 
-`initialize` takes the MQTT username and password as arguments rather than
-hardcoding broker constants the way the Kotlin SDK did. Do **not** commit
-them. Fetch them from your own backend, or keep them in a git-ignored
-`Secrets.swift` / an `.xcconfig` for local development — see
-[`Examples/BasicUsage/Secrets.example.swift`](Examples/BasicUsage/Secrets.example.swift).
+See [Where to put your API key](#where-to-put-your-api-key) — it is the
+question every integrator hits first, so it has its own section.
+
+---
+
+## Where to put your API key
+
+The SDK reads no config file, no `Info.plist` key and no environment
+variable. It takes three strings as arguments and that is the entire
+contract:
+
+```swift
+BarikoiTrace.initialize(apiKey: …, mqttUsername: …, mqttPassword: …)
+```
+
+Where those strings come from is your app's decision. Three options, in
+increasing order of safety.
+
+### Option A — git-ignored Swift file (local development)
+
+Fastest, and what [`Examples/BasicUsage`](Examples/BasicUsage) uses.
+
+```sh
+cp Examples/BasicUsage/Secrets.example.swift Examples/BasicUsage/Secrets.swift
+# fill in the real values
+```
+
+```swift
+enum Secrets {
+    static let barikoiApiKey = "…"
+    static let mqttUsername  = "…"
+    static let mqttPassword  = "…"
+}
+```
+
+`Secrets.swift` and `*.xcconfig` are already in this repo's `.gitignore`. Add
+the same two lines to yours. Development only — the values are still compiled
+into the binary.
+
+### Option B — xcconfig → Info.plist → runtime (per-environment builds)
+
+Keeps the values out of source control and lets Debug/Staging/Release differ
+without a code change.
+
+```
+// Config/Debug.xcconfig — git-ignored
+BARIKOI_API_KEY = your_key_here
+```
+
+```xml
+<!-- Info.plist -->
+<key>BarikoiAPIKey</key>
+<string>$(BARIKOI_API_KEY)</string>
+```
+
+```swift
+guard let key = Bundle.main.object(forInfoDictionaryKey: "BarikoiAPIKey") as? String else {
+    fatalError("BarikoiAPIKey missing — check the xcconfig is assigned to this configuration")
+}
+BarikoiTrace.initialize(apiKey: key, mqttUsername: u, mqttPassword: p)
+```
+
+**This still ships the value inside the app bundle.** Anyone can unzip an
+`.ipa` and read `Info.plist`. Acceptable for the Barikoi API key, which is
+scoped and rotatable. **Not** acceptable for the MQTT password.
+
+### Option C — issued by your own backend (production)
+
+Your app authenticates its user against *your* service; your service returns
+the broker credentials; you pass them to `initialize`. Nothing sensitive ships
+in the binary, and revoking a customer is a server-side change rather than a
+forced app update.
+
+```swift
+let creds = try await MyBackend.fetchTraceCredentials()   // your API, your auth
+BarikoiTrace.initialize(
+    apiKey: creds.barikoiApiKey,
+    mqttUsername: creds.mqttUsername,
+    mqttPassword: creds.mqttPassword
+)
+```
+
+### If you are integrating this SDK as a third party
+
+Your Barikoi API key comes from the Barikoi dashboard. The **MQTT username and
+password are issued to you separately** — they are per-company broker
+credentials, not derivable from the API key, and they must match what the
+broker's ACL expects. A mismatch surfaces as
+`Broker refused the connection (notAuthorized)` rather than as an auth error.
+
+Treat the broker password as a server secret: fetch it at runtime (Option C),
+do not commit it, and do not ship it in a public app if you can avoid it.
+
+### Rules regardless of option
+
+- Never commit real credentials. `git log` keeps them forever, and a public
+  repo means immediate compromise — rotate rather than rewrite history.
+- Never reuse one broker account across customers.
+- The MQTT client id defaults to `iOSClient-{userId}-{deviceUUID}`. If the
+  broker ACL authorizes by client-id pattern, set the prefix with
+  `setMqttClientIdPrefix(_:)` *before* `startTracking`.
 
 ---
 
