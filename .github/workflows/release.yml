@@ -1,0 +1,83 @@
+name: Release
+
+# Fires on a semver tag push. Re-runs the full build/test on the tagged
+# commit before publishing anything — a tag is immutable to consumers in
+# practice, so the gate belongs here and not only on the branch.
+on:
+  push:
+    tags:
+      - "[0-9]+.[0-9]+.[0-9]+"
+      - "[0-9]+.[0-9]+.[0-9]+-*"
+
+permissions:
+  contents: write
+
+jobs:
+  verify:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_16.app/Contents/Developer
+
+      - name: Resolve package dependencies
+        run: xcodebuild -resolvePackageDependencies -scheme BarikoiTrace
+
+      - name: Build
+        run: |
+          xcodebuild build \
+            -scheme BarikoiTrace \
+            -destination 'platform=iOS Simulator,name=iPhone 16,OS=latest'
+
+      - name: Test
+        run: |
+          xcodebuild test \
+            -scheme BarikoiTrace \
+            -destination 'platform=iOS Simulator,name=iPhone 16,OS=latest'
+
+      # Catches the classic SPM release break: the tag resolves for you
+      # locally because your checkout already has state, but fails for a
+      # consumer starting clean.
+      - name: Consumer smoke test (fresh resolve of this tag)
+        run: |
+          set -euo pipefail
+          TAG="${GITHUB_REF_NAME}"
+          WORK="$(mktemp -d)"
+          mkdir -p "$WORK/Sources/Probe"
+          cat > "$WORK/Package.swift" <<EOF
+          // swift-tools-version:5.9
+          import PackageDescription
+          let package = Package(
+              name: "Probe",
+              platforms: [.iOS(.v15)],
+              dependencies: [
+                  .package(url: "https://github.com/${GITHUB_REPOSITORY}.git", exact: "${TAG}")
+              ],
+              targets: [
+                  .target(name: "Probe", dependencies: [
+                      .product(name: "BarikoiTrace", package: "BarikoiTrace-ios-sdk")
+                  ])
+              ]
+          )
+          EOF
+          echo 'import BarikoiTrace' > "$WORK/Sources/Probe/Probe.swift"
+          cd "$WORK"
+          xcodebuild -resolvePackageDependencies -scheme Probe
+
+  release:
+    needs: verify
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" \
+            --title "${GITHUB_REF_NAME}" \
+            --generate-notes \
+            $( [[ "${GITHUB_REF_NAME}" == *-* ]] && echo "--prerelease" )

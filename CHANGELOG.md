@@ -1,4 +1,11 @@
-## 0.1.0 (unreleased)
+## 0.1.0 — 2026-09-02
+
+First tagged release. Consume via SPM:
+
+```swift
+.package(url: "https://github.com/barikoi/BarikoiTrace-ios-sdk.git", from: "0.1.0")
+```
+
 
 * Initial scaffold: Swift Package mirroring the Android `barikoitrace` (dev-v3) SDK.
 * `TraceMode`, `TraceUser`, `TraceError` — field-for-field parity with the Kotlin models.
@@ -14,4 +21,6 @@
 * Resolved and documented the `setOrCreateUser`/`getSettingsFromRemote` error-swallowing question directly in `TraceManager.swift` (implicit refresh swallows, explicit call throws — deliberate, not inconsistent).
 * CI: `.github/workflows/ci.yml` — xcodebuild build/test against an iOS Simulator destination.
 * `docs/APP_STORE_READINESS.md` — purpose-string drafts, review-notes guidance, common rejection patterns to check before submitting.
-* Not yet compiled/verified — see `docs/STATUS.md`.
+* Builds and unit tests pass against an iOS Simulator destination. On-device
+  background-execution matrix (see `docs/WORK_PLAN.md`) is still manual and
+  not covered by CI.

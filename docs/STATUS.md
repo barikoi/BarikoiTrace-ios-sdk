@@ -1,12 +1,16 @@
 # Implementation status
 
 Honest accounting of what exists vs. what's still open, against
-`docs/WORK_PLAN.md`'s phases. Written and never compiled — there is no
-macOS/Xcode toolchain in the environment this was authored in, so "written"
-here means "structurally complete and reviewed by inspection against the
-Kotlin source," not "verified to build."
+`docs/WORK_PLAN.md`'s phases.
 
-## Done (structurally — needs a build pass to confirm)
+As of **0.1.0**, the package builds and its unit tests pass against an iOS
+Simulator destination. What is *not* covered: the on-device
+background-execution matrix (app backgrounded, terminated, relaunched by
+significant-location-change, BGTask firing under real system scheduling).
+CI cannot exercise that — it stays a manual pass on physical hardware
+before any host app ships against this SDK.
+
+## Done
 
 - **Phase 0 — Contract**: models, error codes, REST shapes, MQTT topic/payload
   fields defined in `TraceMode`/`TraceUser`/`TraceError`/`TraceApiClient`,

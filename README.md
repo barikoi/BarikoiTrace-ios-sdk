@@ -24,6 +24,10 @@ dependencies: [
 ]
 ```
 
+Versions are git tags on this repo — see [`docs/RELEASING.md`](docs/RELEASING.md).
+Below `1.0.0`, SPM treats a minor bump as breaking, so `from: "0.1.0"` will
+pick up `0.1.x` but not `0.2.0`.
+
 ---
 
 ## Required app setup
