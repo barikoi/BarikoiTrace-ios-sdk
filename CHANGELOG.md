@@ -1,3 +1,22 @@
+## 0.2.0 (unreleased)
+
+* **`TraceConfig`** — one value carrying `apiKey`, the broker credentials, and
+  the endpoints (`baseURL`, `mqttURL`, `mqttClientIdPrefix`). New
+  `BarikoiTrace.initialize(_ config:)` applies endpoints *before* the manager
+  starts, which the old sequence could not: `initialize` resumes a previous
+  tracking session and that session builds its MQTT client immediately, so a
+  `setMqttURL` afterwards pointed the first client at the wrong broker.
+* `initialize(apiKey:mqttUsername:mqttPassword:)` is **deprecated**, forwarding
+  to the config overload. No behavior change for existing call sites.
+* `TraceConfig.isMqttTransportEncrypted` and `TraceConfig.warnings` — surface
+  plaintext broker transport, a non-HTTPS API base URL, and empty credentials
+  at `initialize` (logged) or at build time (assert on `warnings`). The shipped
+  broker default is still plaintext `tcp://…:1883`.
+* `TraceConfigTests` — scheme classification, fail-closed on a malformed URL,
+  warning coverage.
+* `Examples/BasicUsage` and the README use the config API; `Secrets.example.swift`
+  gains `mqttURL`.
+
 ## 0.1.0 — 2026-09-02
 
 First tagged release. Consume via SPM:

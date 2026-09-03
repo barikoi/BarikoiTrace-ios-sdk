@@ -25,11 +25,43 @@ public protocol TraceLogListener: AnyObject {
 ///      correctly resumes tracking (see `TraceBackgroundCoordinator`).
 public enum BarikoiTrace {
 
-    /// Must be called once, typically from `application(_:didFinishLaunchingWithOptions:)`,
-    /// before any other method.
+    /// Must be called once, typically from
+    /// `application(_:didFinishLaunchingWithOptions:)`, before any other
+    /// method.
+    ///
+    /// ```swift
+    /// BarikoiTrace.initialize(
+    ///     TraceConfig(apiKey: "…", mqttUsername: "…", mqttPassword: "…")
+    /// )
+    /// ```
+    ///
+    /// Endpoints are applied *before* the manager starts, which matters:
+    /// `initialize` resumes tracking if the previous process was tracking, and
+    /// a resumed session builds its MQTT client immediately. Setting the
+    /// broker URL afterwards — as the old `setMqttURL`-after-`initialize`
+    /// sequence did — could point that first client at the wrong broker.
+    public static func initialize(_ config: TraceConfig) {
+        for warning in config.warnings {
+            TraceManager.shared.log(level: "WARN", tag: "TraceConfig", message: warning)
+        }
+
+        TraceManager.shared.setMqttCredentials(
+            username: config.mqttUsername,
+            password: config.mqttPassword
+        )
+        TraceManager.shared.setBaseURL(config.baseURL)
+        TraceManager.shared.setMqttURL(config.mqttURL)
+        TraceManager.shared.setMqttClientIdPrefix(config.mqttClientIdPrefix)
+        TraceManager.shared.initialize(apiKey: config.apiKey)
+    }
+
+    @available(*, deprecated, message: "Use initialize(_: TraceConfig). This overload cannot carry the broker URL, so it forces a setMqttURL call after initialize — which is too late if a previous session is being resumed.")
     public static func initialize(apiKey: String, mqttUsername: String, mqttPassword: String) {
-        TraceManager.shared.setMqttCredentials(username: mqttUsername, password: mqttPassword)
-        TraceManager.shared.initialize(apiKey: apiKey)
+        initialize(TraceConfig(
+            apiKey: apiKey,
+            mqttUsername: mqttUsername,
+            mqttPassword: mqttPassword
+        ))
     }
 
     /// Call from `application(_:didFinishLaunchingWithOptions:)`, after

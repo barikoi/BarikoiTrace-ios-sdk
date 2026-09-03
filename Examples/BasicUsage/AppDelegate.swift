@@ -16,11 +16,18 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         // credentials are issued by your backend per app and per environment;
         // see docs/WORK_PLAN.md §2 (Phase 0) for why the Kotlin SDK's
         // hardcoded-constant pattern isn't carried over here.
-        BarikoiTrace.initialize(
+        var config = TraceConfig(
             apiKey: Secrets.barikoiApiKey,
             mqttUsername: Secrets.mqttUsername,
             mqttPassword: Secrets.mqttPassword
         )
+        // Endpoints default to production. Override for staging or a
+        // self-hosted deployment — and prefer a TLS broker scheme
+        // (`ssl://…:8883`) over the plaintext default for anything carrying
+        // real user locations. `config.warnings` lists what looks wrong.
+        config.mqttURL = Secrets.mqttURL
+
+        BarikoiTrace.initialize(config)
 
         // Required. Detects a significant-location-change relaunch after the
         // OS previously killed this process, and resumes tracking from the

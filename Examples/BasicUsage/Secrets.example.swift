@@ -18,4 +18,9 @@ enum Secrets {
     /// mismatch surfaces as `Broker refused the connection (notAuthorized)`.
     static let mqttUsername = "YOUR_MQTT_USERNAME"
     static let mqttPassword = "YOUR_MQTT_PASSWORD"
+
+    /// Broker endpoint. `tcp://` is plaintext — credentials and every
+    /// location fix cross the network unencrypted. Use `ssl://host:8883`
+    /// wherever the broker offers TLS.
+    static let mqttURL = "tcp://broker.trace.bmapsbd.com:1883"
 }

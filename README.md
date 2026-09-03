@@ -137,9 +137,11 @@ func application(
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
 ) -> Bool {
     BarikoiTrace.initialize(
-        apiKey: Secrets.barikoiApiKey,
-        mqttUsername: Secrets.mqttUsername,
-        mqttPassword: Secrets.mqttPassword
+        TraceConfig(
+            apiKey: Secrets.barikoiApiKey,
+            mqttUsername: Secrets.mqttUsername,
+            mqttPassword: Secrets.mqttPassword
+        )
     )
 
     // Required. Detects a significant-location-change relaunch after the
@@ -165,15 +167,52 @@ question every integrator hits first, so it has its own section.
 ## Where to put your API key
 
 The SDK reads no config file, no `Info.plist` key and no environment
-variable. It takes three strings as arguments and that is the entire
-contract:
+variable. You hand it a `TraceConfig`, and that is the entire contract:
 
 ```swift
-BarikoiTrace.initialize(apiKey: …, mqttUsername: …, mqttPassword: …)
+BarikoiTrace.initialize(
+    TraceConfig(
+        apiKey: "…",          // Barikoi dashboard
+        mqttUsername: "…",    // issued separately, per company
+        mqttPassword: "…"
+    )
+)
 ```
 
-Where those strings come from is your app's decision. Three options, in
-increasing order of safety.
+Endpoints default to production and are overridable for staging or a
+self-hosted deployment:
+
+```swift
+var config = TraceConfig(apiKey: "…", mqttUsername: "…", mqttPassword: "…")
+config.baseURL            = "https://api.staging.example.com/api/v1/"
+config.mqttURL            = "ssl://broker.staging.example.com:8883"
+config.mqttClientIdPrefix = "fleet-ios-"     // only if the broker ACL matches on client id
+
+assert(config.warnings.isEmpty, "\(config.warnings)")   // plaintext broker, non-HTTPS API, empty key…
+BarikoiTrace.initialize(config)
+```
+
+Configure through `TraceConfig` rather than calling `setBaseURL`/`setMqttURL`
+after `initialize`. `initialize` resumes tracking if the previous process was
+tracking, and a resumed session builds its MQTT client immediately — endpoints
+set afterwards arrive too late for that first client.
+
+| Field | Default | |
+|---|---|---|
+| `apiKey` | — | required |
+| `mqttUsername` / `mqttPassword` | — | required |
+| `baseURL` | `https://api.trace.bmapsbd.com/api/v1/` | trailing slash normalized |
+| `mqttURL` | `tcp://broker.trace.bmapsbd.com:1883` | **plaintext** — see below |
+| `mqttClientIdPrefix` | `iOSClient-` | Android uses `AndroidClient-` |
+
+`mqttURL` accepts `tcp`/`mqtt`/`ws` (plaintext) and `ssl`/`mqtts`/`tls`/`wss`
+(TLS); port defaults to 1883 or 8883 by scheme. `config.isMqttTransportEncrypted`
+tells you which you got — the SDK default is plaintext, meaning both broker
+credentials and every location fix travel unencrypted. Point it at a TLS
+listener for anything carrying real user locations.
+
+Where the credential *values* come from is your app's decision. Three options,
+in increasing order of safety.
 
 ### Option A — git-ignored Swift file (local development)
 
@@ -216,7 +255,7 @@ BARIKOI_API_KEY = your_key_here
 guard let key = Bundle.main.object(forInfoDictionaryKey: "BarikoiAPIKey") as? String else {
     fatalError("BarikoiAPIKey missing — check the xcconfig is assigned to this configuration")
 }
-BarikoiTrace.initialize(apiKey: key, mqttUsername: u, mqttPassword: p)
+BarikoiTrace.initialize(TraceConfig(apiKey: key, mqttUsername: u, mqttPassword: p))
 ```
 
 **This still ships the value inside the app bundle.** Anyone can unzip an
@@ -233,9 +272,12 @@ forced app update.
 ```swift
 let creds = try await MyBackend.fetchTraceCredentials()   // your API, your auth
 BarikoiTrace.initialize(
-    apiKey: creds.barikoiApiKey,
-    mqttUsername: creds.mqttUsername,
-    mqttPassword: creds.mqttPassword
+    TraceConfig(
+        apiKey: creds.barikoiApiKey,
+        mqttUsername: creds.mqttUsername,
+        mqttPassword: creds.mqttPassword,
+        mqttURL: creds.brokerURL          // server decides the broker too
+    )
 )
 ```
 
@@ -316,18 +358,23 @@ Everything public is a static member of the `BarikoiTrace` enum.
 
 | Method | Notes |
 |---|---|
-| `initialize(apiKey:mqttUsername:mqttPassword:)` | Call once, first, before anything else. |
+| `initialize(_ config: TraceConfig)` | Call once, first, before anything else. |
+| `initialize(apiKey:mqttUsername:mqttPassword:)` | **Deprecated** — cannot carry the broker URL. Forwards to the above. |
 | `handleLaunch(options:)` | Call from `didFinishLaunchingWithOptions`, after `initialize`. Required for relaunch-after-kill. |
 | `setLogListener(_:)` | Conform to `TraceLogListener` to pipe SDK logs into your own debug console. |
 
 ### Endpoints
 
+Set these through `TraceConfig` at `initialize`. The setters below exist for
+changing endpoints mid-session — switching a running app between staging and
+production, say — and re-point the MQTT client on the next fix.
+
 | Method | Notes |
 |---|---|
-| `setBaseURL(_:)` | Default `https://api.trace.bmapsbd.com/api/v1/`. |
-| `setMqttURL(_:)` | Default `tcp://broker.trace.bmapsbd.com:1883`. |
-| `setMqttClientIdPrefix(_:)` | Default `"iOSClient-"` (Android uses `"AndroidClient-"`). Only needed if the broker ACL authorizes by client-id pattern — the symptom is `notAuthorized` on a CONNECT whose credentials are correct. Call before `startTracking`. |
-| `resetURLs()` | Back to the defaults above. |
+| `setBaseURL(_:)` | |
+| `setMqttURL(_:)` | |
+| `setMqttClientIdPrefix(_:)` | Call before `startTracking`. |
+| `resetURLs()` | Back to the SDK defaults. |
 
 ### User
 
