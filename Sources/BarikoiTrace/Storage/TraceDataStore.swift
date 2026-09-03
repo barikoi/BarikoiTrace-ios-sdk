@@ -220,6 +220,21 @@ public final class TraceDataStore {
         // ignored. Written and read on the same key now, and that key is the
         // mode's own, not the host app's override.
         defaults.set(mode.offline, forKey: Keys.modeOfflineSync)
+
+        // A caller-supplied daily window is persisted here too. Only
+        // `setTraceModeWithTiming` used to write these keys, and nothing but
+        // the remote-settings path calls it — so a mode built with
+        // `.setStartTime`/`.setEndTime` and handed to `startTracking` had its
+        // window silently dropped, while `TraceManager.isWithinTrackingWindow`
+        // read the store and found none.
+        //
+        // A full-day mode writes nothing, deliberately: a mode built without
+        // times must not erase a window that `/sdk/company/settings`
+        // configured. Clearing one is `clearTraceModeWithTiming()`'s job.
+        if mode.startTime != TraceMode.dayStart || mode.endTime != TraceMode.dayEnd {
+            defaults.set(TraceDataStore.encode(mode.startTime), forKey: Keys.startTime)
+            defaults.set(TraceDataStore.encode(mode.endTime), forKey: Keys.endTime)
+        }
     }
 
     public func setTraceModeWithTiming(_ mode: TraceMode) {
