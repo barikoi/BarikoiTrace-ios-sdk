@@ -47,7 +47,7 @@ Next Minor" → select the `BarikoiTrace` product.
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/barikoi/BarikoiTrace-ios-sdk.git", from: "0.1.0")
+    .package(url: "https://github.com/barikoi/BarikoiTrace-ios-sdk.git", from: "0.4.0")
 ]
 ```
 
@@ -60,8 +60,14 @@ Then add the product to your target:
 )
 ```
 
-Below `1.0.0`, SPM treats a **minor** bump as breaking: `from: "0.1.0"` picks up
-`0.1.x` but not `0.2.0`. See [`docs/RELEASING.md`](docs/RELEASING.md).
+Below `1.0.0`, SPM treats a **minor** bump as breaking: `from: "0.4.0"` picks up
+`0.4.x` but not `0.5.0`. See [`docs/RELEASING.md`](docs/RELEASING.md).
+
+The iOS and Android SDKs are released **in lockstep on the same version
+number** — `0.4.0` here pairs with `com.github.barikoi:barikoitrace:0.4.0` on
+[Android](https://github.com/barikoi/BarikoiTrace-android-sdk). One number
+identifies a matched pair, which is what makes a shared Flutter/React Native
+wrapper tractable.
 
 ---
 
@@ -626,7 +632,7 @@ Tag-based SPM distribution. Full rules and checklist in
 [`docs/RELEASING.md`](docs/RELEASING.md); short version:
 
 ```bash
-git tag -a 0.2.0 -m "0.2.0" && git push origin 0.2.0
+git tag -a 0.4.0 -m "0.4.0" && git push origin 0.4.0
 ```
 
 `.github/workflows/release.yml` then rebuilds and tests the tagged commit,

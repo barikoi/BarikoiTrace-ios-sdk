@@ -13,8 +13,13 @@ there is no registry, no review queue, nothing to submit. Consumers resolve
   minor, until the API is committed at `1.0.0`.
 - **No `v` prefix.** Tags are `0.1.0`, not `v0.1.0` — matches what
   `README.md` and the release workflow's tag filter expect. Stay consistent.
-- **Pre-releases** (`0.2.0-rc.1`) are ignored by `from:`/`upTo` rules unless
+- **Pre-releases** (`0.4.1-rc.1`) are ignored by `from:`/`upTo` rules unless
   the consumer opts in explicitly. Use them for internal trials.
+- **Version in lockstep with Android.** Both SDKs ship the same number, so
+  `0.4.0` here and `com.github.barikoi:barikoitrace:0.4.0` there are a matched
+  pair. Cut them together, or the pairing stops meaning anything. A
+  platform-specific fix still bumps both — a gap in one series is cheaper than
+  two numbering schemes to reason about.
 
 ## Checklist
 

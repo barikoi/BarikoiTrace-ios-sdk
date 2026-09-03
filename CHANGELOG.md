@@ -1,4 +1,14 @@
-## 0.2.0 (unreleased)
+## 0.4.0 — 2026-09-03
+
+Version aligned with the Android SDK: both platforms ship `0.4.0`, so a single
+number identifies a matched pair of SDKs and a cross-platform wrapper does not
+have to track two version lines.
+
+`0.2.0` was cut from this same tree before that decision and stays where it is
+— tags are immutable once pushed. Consume `0.4.0`.
+
+Contents (unchanged from the `0.2.0` tag):
+
 
 * **`TraceConfig`** — one value carrying `apiKey`, the broker credentials, and
   the endpoints (`baseURL`, `mqttURL`, `mqttClientIdPrefix`). New
