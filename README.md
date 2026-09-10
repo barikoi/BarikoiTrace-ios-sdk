@@ -18,7 +18,6 @@ on both platforms.
 ## Table of contents
 
 - [Installation](#installation)
-- [How it works](#how-it-works)
 - [Required app setup](#required-app-setup)
 - [Where to put your API key](#where-to-put-your-api-key)
 - [Quick start](#quick-start)
@@ -67,18 +66,6 @@ number** — `0.4.0` here pairs with `com.github.barikoi:barikoitrace:0.4.0` on
 [Android](https://github.com/barikoi/BarikoiTrace-android-sdk). One number
 identifies a matched pair, which is what makes a shared Flutter/React Native
 wrapper tractable.
-
----
-
-## How it works
-
-```
-CLLocationManager ──▶ TraceLocationEngine ──▶ TraceManager ──┬──▶ TraceMqttClient ──▶ broker
-                                                             │
-                                                             └──▶ OfflineLocationStore (SQLite)
-                                                                        │  network back
-                                                                        └──▶ flush, batch of 100
-```
 
 ---
 
