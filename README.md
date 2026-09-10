@@ -80,19 +80,6 @@ CLLocationManager ──▶ TraceLocationEngine ──▶ TraceManager ──┬
                                                                         └──▶ flush, batch of 100
 ```
 
-| Component | Responsibility |
-|---|---|
-| `TraceApiClient` | `POST /sdk/authenticate`, `GET /sdk/company/settings`. async/await. |
-| `TraceLocationEngine` | `CLLocationManager` wrapper — continuous updates and one-shot fetch. Applies the accuracy filter. |
-| `TraceMqttClient` | CocoaMQTT wrapper. Topic resolution, LWT, QoS 1, exponential-backoff reconnect. |
-| `OfflineLocationStore` | SQLite-backed durable queue. Survives process death — not an in-memory buffer. |
-| `TraceBackgroundCoordinator` | The background wake stack: background location delivery, significant-location-change monitoring (including relaunch-after-kill), `BGTaskScheduler` periodic flush. |
-| `TraceManager` | Orchestrator. Auth state, mode, trip state, routing a fix to MQTT or to disk. |
-| `BarikoiTrace` | The public facade. The only type you import against. |
-
-Credentials live in the Keychain (`KeychainStore`); non-secret state in
-`UserDefaults` (`TraceDataStore`).
-
 ---
 
 ## Required app setup
