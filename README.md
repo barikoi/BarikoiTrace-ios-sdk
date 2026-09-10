@@ -25,7 +25,6 @@ on both platforms.
 - [API reference](#api-reference)
 - [Tracking modes](#tracking-modes)
 - [Offline behavior](#offline-behavior)
-- [MQTT contract](#mqtt-contract)
 - [Error handling](#error-handling)
 - [Background execution — read this before shipping](#background-execution--read-this-before-shipping)
 - [Platform differences from the Android SDK](#platform-differences-from-the-android-sdk)
@@ -486,41 +485,6 @@ Disable with `setOfflineTracking(false)` or `TraceMode.Builder().setOfflineSync(
 Force a flush with `uploadOfflineData()`. A `BGProcessingTask` registered under
 `com.barikoi.trace.offlineflush` also flushes periodically when iOS grants the
 window — which is why that identifier must be in your `Info.plist`.
-
----
-
-## MQTT contract
-
-**Location topic:** `company/{companyId}/{groupId}/{userId}/location`
-**LWT topic:** `device/{userId}/status`, retained, payload `offline`
-**Client ID:** `{prefix}{userId}-{deviceUUID}` — QoS 1 throughout.
-
-Payload:
-
-```json
-{
-  "latitude": 23.8103,
-  "longitude": 90.4125,
-  "altitude": 4.0,
-  "speed": 1.4,
-  "bearing": 275.0,
-  "accuracy": 12.0,
-  "gpx_time": "2026-09-02 11:04:38",
-  "user_id": "…",
-  "company_id": "…",
-  "user_name": "Jane",
-  "trip_id": "…",
-  "trip_status": "active"
-}
-```
-
-`trip_id`/`trip_status` appear only while on a trip; stopping publishes a final
-full payload with `trip_status: "completed"`. `gpx_time` uses one UTC string
-format on every path — live publish, offline insert and offline flush alike.
-Negative `speed`/`bearing` (what Core Location reports when it has no value)
-are clamped to zero. The shape is locked down by
-`Tests/BarikoiTraceTests/MqttPayloadContractTests.swift`; change the payload
-and that test fails first.
 
 ---
 
