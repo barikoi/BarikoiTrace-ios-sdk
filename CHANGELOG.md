@@ -1,3 +1,12 @@
+## 0.4.1 — Unreleased
+
+* **`BarikoiTrace.setApiKey(_:)`** — swaps the API key for the running process
+  (persisted + applied to the live `TraceApiClient`) without re-running
+  `initialize`. Fixes first-login-after-fresh-install for hosts that must
+  `initialize` at launch (BGTaskScheduler) but only get the key later: before,
+  the key was only picked up on the next launch, so `setOrCreateUser` failed
+  with `NO_KEY` / authenticated with the stale key until the app was reopened.
+
 ## 0.4.0 — 2026-09-03
 
 Version aligned with the Android SDK: both platforms ship `0.4.0`, so a single

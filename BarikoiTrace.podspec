@@ -14,7 +14,7 @@
 # Consume it one of three ways:
 #
 #   # 1. Published to the CocoaPods trunk (after `pod trunk push`):
-#   pod 'BarikoiTrace', '0.4.0'
+#   pod 'BarikoiTrace', '0.4.1'
 #
 #   # 2. Straight from the tag, no trunk needed:
 #   pod 'BarikoiTrace',
@@ -26,7 +26,7 @@
 #
 Pod::Spec.new do |s|
   s.name             = 'BarikoiTrace'
-  s.version          = '0.4.0'
+  s.version          = '0.4.1'
   s.summary          = 'Background location tracing for iOS — MQTT streaming with a durable offline queue.'
   s.description      = <<-DESC
 Authenticates a user against the Barikoi Trace backend, streams their location

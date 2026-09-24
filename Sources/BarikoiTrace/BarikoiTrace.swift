@@ -64,6 +64,14 @@ public enum BarikoiTrace {
         ))
     }
 
+    /// Swaps the API key without re-initializing — takes effect immediately
+    /// for this process and is persisted for later launches. Use when the key
+    /// is only known after launch (e.g. at login); `initialize` must still be
+    /// called at launch, with whatever key is known then (possibly empty).
+    public static func setApiKey(_ apiKey: String) {
+        TraceManager.shared.setApiKey(apiKey)
+    }
+
     /// Call from `application(_:didFinishLaunchingWithOptions:)`, after
     /// `initialize`, passing through `launchOptions`.
     public static func handleLaunch(options: [AnyHashable: Any]?) {

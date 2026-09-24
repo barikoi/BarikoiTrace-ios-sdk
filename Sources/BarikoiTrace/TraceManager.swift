@@ -151,6 +151,18 @@ public final class TraceManager: NSObject, TraceManagerProtocol {
         }
     }
 
+    /// Replaces the API key for the running process — persisted and applied to
+    /// the live API client, so the next `setOrCreateUser` uses it immediately.
+    ///
+    /// Unlike `initialize(apiKey:)` this is safe to call any time, any number
+    /// of times: it does not register background tasks or resume tracking.
+    /// For hosts that initialize at launch (required for `BGTaskScheduler`)
+    /// but only learn the key later, e.g. at login.
+    public func setApiKey(_ apiKey: String) {
+        dataStore.setApiKey(apiKey)
+        apiClient.setApiKey(apiKey)
+    }
+
     /// Call from AppDelegate's `application(_:didFinishLaunchingWithOptions:)`,
     /// after `initialize(apiKey:)`, so a significant-location-change relaunch
     /// after the process was killed correctly resumes tracking.

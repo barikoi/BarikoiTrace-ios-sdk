@@ -45,7 +45,7 @@ Next Minor" → select the `BarikoiTrace` product.
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/barikoi/BarikoiTrace-ios-sdk.git", from: "0.4.0")
+    .package(url: "https://github.com/barikoi/BarikoiTrace-ios-sdk.git", from: "0.4.1")
 ]
 ```
 
@@ -62,7 +62,7 @@ Below `1.0.0`, SPM treats a **minor** bump as breaking: `from: "0.4.0"` picks up
 `0.4.x` but not `0.5.0`. See [`docs/RELEASING.md`](docs/RELEASING.md).
 
 The iOS and Android SDKs are released **in lockstep on the same version
-number** — `0.4.0` here pairs with `com.github.barikoi:barikoitrace:0.4.0` on
+number** — `0.4.1` here pairs with `com.github.barikoi:barikoitrace:0.4.1` on
 [Android](https://github.com/barikoi/BarikoiTrace-android-sdk). One number
 identifies a matched pair, which is what makes a shared Flutter/React Native
 wrapper tractable.
@@ -339,6 +339,7 @@ Everything public is a static member of the `BarikoiTrace` enum.
 |---|---|
 | `initialize(_ config: TraceConfig)` | Call once, first, before anything else. |
 | `initialize(apiKey:mqttUsername:mqttPassword:)` | **Deprecated** — cannot carry the broker URL. Forwards to the above. |
+| `setApiKey(_:)` | Swap the API key without re-initializing (e.g. at login). Persisted and live immediately. |
 | `handleLaunch(options:)` | Call from `didFinishLaunchingWithOptions`, after `initialize`. Required for relaunch-after-kill. |
 | `setLogListener(_:)` | Conform to `TraceLogListener` to pipe SDK logs into your own debug console. |
 
