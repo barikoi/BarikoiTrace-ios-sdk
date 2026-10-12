@@ -12,6 +12,7 @@ final class TraceDataStoreTests: XCTestCase {
 
     override func setUp() {
         super.setUp()
+        UserDefaults(suiteName: "com.barikoi.trace.tests")?.removePersistentDomain(forName: "com.barikoi.trace.tests")
         store = TraceDataStore(suiteName: "com.barikoi.trace.tests")
     }
 
@@ -25,6 +26,7 @@ final class TraceDataStoreTests: XCTestCase {
         // test leaks into the next. Cases pass today only because the
         // alphabetical order happens to be favorable.
         store.clearTraceModeWithTiming()
+        UserDefaults(suiteName: "com.barikoi.trace.tests")?.removePersistentDomain(forName: "com.barikoi.trace.tests")
         store = nil
         super.tearDown()
     }
