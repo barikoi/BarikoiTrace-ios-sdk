@@ -37,6 +37,8 @@ public final class TraceDataStore {
         static let startTime = "bkoi_trace_start_time"
         static let endTime = "bkoi_trace_end_time"
         static let debug = "bkoi_trace_debug"
+        static let notificationTitle = "bkoi_trace_notification_title"
+        static let notificationContent = "bkoi_trace_notification_content"
     }
 
     private enum SecureKeys {
@@ -60,6 +62,16 @@ public final class TraceDataStore {
         // flushing, so drop any stored value on launch.
         defaults.removeObject(forKey: Keys.legacyDataSyncing)
     }
+
+    // MARK: - Notification Config
+
+    public func setNotificationConfig(title: String?, content: String?) {
+        defaults.set(title, forKey: Keys.notificationTitle)
+        defaults.set(content, forKey: Keys.notificationContent)
+    }
+
+    public func getNotificationTitle() -> String? { defaults.string(forKey: Keys.notificationTitle) }
+    public func getNotificationContent() -> String? { defaults.string(forKey: Keys.notificationContent) }
 
     // MARK: - API key / MQTT credentials
 

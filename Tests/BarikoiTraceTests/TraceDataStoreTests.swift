@@ -45,6 +45,19 @@ final class TraceDataStoreTests: XCTestCase {
         XCTAssertEqual(store.getMqttPassword(), "pass")
     }
 
+    func testNotificationConfigRoundtrip() {
+        XCTAssertNil(store.getNotificationTitle())
+        XCTAssertNil(store.getNotificationContent())
+
+        store.setNotificationConfig(title: "Custom Title", content: "Custom Content")
+        XCTAssertEqual(store.getNotificationTitle(), "Custom Title")
+        XCTAssertEqual(store.getNotificationContent(), "Custom Content")
+
+        store.setNotificationConfig(title: nil, content: nil)
+        XCTAssertNil(store.getNotificationTitle())
+        XCTAssertNil(store.getNotificationContent())
+    }
+
     // MARK: - URLs
 
     func testBaseURLDefaultsToNilThenRoundtrips() {

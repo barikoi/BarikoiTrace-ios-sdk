@@ -67,6 +67,14 @@ public struct TraceConfig: Sendable {
     /// and password are correct.
     public var mqttClientIdPrefix: String = TraceMqttClient.defaultClientIdPrefix
 
+    // MARK: - Notifications (optional, used on Android)
+
+    /// Optional notification title for background service.
+    public var notificationTitle: String? = nil
+
+    /// Optional notification message/content for background service.
+    public var notificationContent: String? = nil
+
     // MARK: - Init
 
     public init(
@@ -75,7 +83,9 @@ public struct TraceConfig: Sendable {
         mqttPassword: String,
         baseURL: String = TraceApiRoutes.baseURL,
         mqttURL: String = TraceApiRoutes.mqttURL,
-        mqttClientIdPrefix: String = TraceMqttClient.defaultClientIdPrefix
+        mqttClientIdPrefix: String = TraceMqttClient.defaultClientIdPrefix,
+        notificationTitle: String? = nil,
+        notificationContent: String? = nil
     ) {
         self.apiKey = apiKey
         self.mqttUsername = mqttUsername
@@ -83,6 +93,8 @@ public struct TraceConfig: Sendable {
         self.baseURL = baseURL
         self.mqttURL = mqttURL
         self.mqttClientIdPrefix = mqttClientIdPrefix
+        self.notificationTitle = notificationTitle
+        self.notificationContent = notificationContent
     }
 
     // MARK: - Introspection

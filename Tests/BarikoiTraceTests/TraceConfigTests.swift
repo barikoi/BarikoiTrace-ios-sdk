@@ -22,6 +22,20 @@ final class TraceConfigTests: XCTestCase {
         XCTAssertEqual(makeConfig().mqttClientIdPrefix, "iOSClient-")
     }
 
+    func testNotificationConfigDefaults() {
+        let config = makeConfig()
+        XCTAssertNil(config.notificationTitle)
+        XCTAssertNil(config.notificationContent)
+    }
+
+    func testCustomNotificationConfig() {
+        var config = makeConfig()
+        config.notificationTitle = "Custom Title"
+        config.notificationContent = "Custom Content"
+        XCTAssertEqual(config.notificationTitle, "Custom Title")
+        XCTAssertEqual(config.notificationContent, "Custom Content")
+    }
+
     // MARK: - Transport encryption
 
     func testTLSSchemesAreRecognized() {

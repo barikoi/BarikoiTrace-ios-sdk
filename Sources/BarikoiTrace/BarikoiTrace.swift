@@ -52,6 +52,10 @@ public enum BarikoiTrace {
         TraceManager.shared.setBaseURL(config.baseURL)
         TraceManager.shared.setMqttURL(config.mqttURL)
         TraceManager.shared.setMqttClientIdPrefix(config.mqttClientIdPrefix)
+        TraceManager.shared.setNotificationConfig(
+            title: config.notificationTitle,
+            content: config.notificationContent
+        )
         TraceManager.shared.initialize(apiKey: config.apiKey)
     }
 
@@ -176,6 +180,20 @@ public enum BarikoiTrace {
     /// suppress both the notification and the prompt.
     public static func setLocationDisabledNotificationEnabled(_ enabled: Bool) {
         TraceNotifier.isEnabled = enabled
+    }
+
+    // MARK: - Notification Configuration
+
+    public static func setNotificationConfig(title: String? = nil, content: String? = nil) {
+        TraceManager.shared.setNotificationConfig(title: title, content: content)
+    }
+
+    public static func getNotificationTitle() -> String? {
+        TraceManager.shared.getNotificationTitle()
+    }
+
+    public static func getNotificationContent() -> String? {
+        TraceManager.shared.getNotificationContent()
     }
 
     // MARK: - Trips

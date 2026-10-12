@@ -462,6 +462,11 @@ public final class TraceManager: NSObject, TraceManagerProtocol {
     public func setOfflineTracking(_ enabled: Bool) { dataStore.setOfflineTracking(enabled) }
     public func setLoggingEnabled(_ enabled: Bool) { dataStore.setLogging(enabled) }
     public func setBroadcastingEnabled(_ enabled: Bool) { dataStore.setBroadcasting(enabled) }
+    public func setNotificationConfig(title: String?, content: String?) {
+        dataStore.setNotificationConfig(title: title, content: content)
+    }
+    public func getNotificationTitle() -> String? { dataStore.getNotificationTitle() }
+    public func getNotificationContent() -> String? { dataStore.getNotificationContent() }
 
     // MARK: - Trips
 
