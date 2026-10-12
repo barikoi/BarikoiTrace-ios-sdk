@@ -99,8 +99,13 @@ public enum BarikoiTrace {
 
     // MARK: - User
 
+    public static func setOrCreateUser(phone: String) async throws -> TraceUser {
+        try await TraceManager.shared.setOrCreateUser(phone: phone)
+    }
+
+    @available(*, deprecated, message: "name and email are no longer supported by the backend; use setOrCreateUser(phone:)")
     public static func setOrCreateUser(name: String?, email: String?, phone: String) async throws -> TraceUser {
-        try await TraceManager.shared.setOrCreateUser(name: name, email: email, phone: phone)
+        try await setOrCreateUser(phone: phone)
     }
 
     public static func getUser() -> TraceUser? { TraceManager.shared.getUser() }

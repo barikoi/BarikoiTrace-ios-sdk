@@ -96,8 +96,6 @@ public final class TraceDataStore {
 
     public func setUser(_ user: TraceUser) {
         keychain.set(user.userId, forKey: SecureKeys.userId)
-        if let v = user.name { keychain.set(v, forKey: SecureKeys.userName) }
-        if let v = user.email { keychain.set(v, forKey: SecureKeys.userEmail) }
         if let v = user.phone { keychain.set(v, forKey: SecureKeys.userPhone) }
         if let v = user.companyId { keychain.set(v, forKey: SecureKeys.userCompany) }
         if let v = user.group { keychain.set(v, forKey: SecureKeys.userGroup) }
@@ -108,8 +106,6 @@ public final class TraceDataStore {
         guard let userId = keychain.get(SecureKeys.userId) else { return nil }
         return TraceUser(
             userId: userId,
-            name: keychain.get(SecureKeys.userName),
-            email: keychain.get(SecureKeys.userEmail),
             phone: keychain.get(SecureKeys.userPhone),
             companyId: keychain.get(SecureKeys.userCompany),
             group: keychain.get(SecureKeys.userGroup),
@@ -120,7 +116,7 @@ public final class TraceDataStore {
     public func getUserId() -> String? { keychain.get(SecureKeys.userId) }
 
     public func clearUser() {
-        [SecureKeys.userId, SecureKeys.userName, SecureKeys.userEmail,
+        [SecureKeys.userId,
          SecureKeys.userPhone, SecureKeys.userCompany, SecureKeys.userGroup,
          SecureKeys.userUpdatedAt].forEach(keychain.remove)
     }

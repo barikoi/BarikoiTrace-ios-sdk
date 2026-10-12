@@ -5,8 +5,6 @@ import Foundation
 /// without them (mirrors `TraceApiClient.kt`'s `companies[0]` requirement).
 public struct TraceUser: Equatable, Sendable, Codable {
     public let userId: String
-    public let name: String?
-    public let email: String?
     public let phone: String?
     public let companyId: String?
     public let group: String?
@@ -17,8 +15,6 @@ public struct TraceUser: Equatable, Sendable, Codable {
 
     public init(
         userId: String,
-        name: String? = nil,
-        email: String? = nil,
         phone: String? = nil,
         companyId: String? = nil,
         group: String? = nil,
@@ -27,8 +23,6 @@ public struct TraceUser: Equatable, Sendable, Codable {
         updatedAt: Double = Date().timeIntervalSince1970 * 1000
     ) {
         self.userId = userId
-        self.name = name
-        self.email = email
         self.phone = phone
         self.companyId = companyId
         self.group = group

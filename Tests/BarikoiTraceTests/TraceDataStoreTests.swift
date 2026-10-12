@@ -63,14 +63,13 @@ final class TraceDataStoreTests: XCTestCase {
 
     func testUserRoundtrip() {
         let user = TraceUser(
-            userId: "u1", name: "Jane", email: "jane@example.com", phone: "+8801700000000",
+            userId: "u1", phone: "+8801700000000",
             companyId: "c1", group: "g1", updatedAt: 1_000
         )
         store.setUser(user)
 
         let fetched = store.getUser()
         XCTAssertEqual(fetched?.userId, "u1")
-        XCTAssertEqual(fetched?.name, "Jane")
         XCTAssertEqual(fetched?.companyId, "c1")
         XCTAssertEqual(fetched?.group, "g1")
         XCTAssertEqual(fetched?.updatedAt, 1_000)

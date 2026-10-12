@@ -206,7 +206,12 @@ public final class TraceManager: NSObject, TraceManagerProtocol {
     /// If a host app needs to know the implicit refresh above failed too,
     /// call `getSettingsFromRemote()` explicitly after `setOrCreateUser`
     /// rather than changing this method's error behavior.
+    @available(*, deprecated, message: "name and email are no longer supported by the backend; use setOrCreateUser(phone:)")
     public func setOrCreateUser(name: String?, email: String?, phone: String) async throws -> TraceUser {
+        try await setOrCreateUser(phone: phone)
+    }
+
+    public func setOrCreateUser(phone: String) async throws -> TraceUser {
         guard !phone.isEmpty else { throw TraceError.noDataError() }
         guard let apiKey = dataStore.getApiKey(), !apiKey.isEmpty else { throw TraceError.noKeyError() }
 
@@ -221,7 +226,7 @@ public final class TraceManager: NSObject, TraceManagerProtocol {
         // the seed was previously the only thing available.
         guard await NetworkChecker.isNetworkAvailable(waitingUpTo: 1) else { throw TraceError.networkError() }
 
-        let user = try await apiClient.authenticate(name: name, email: email, phone: phone)
+        let user = try await apiClient.authenticate(phone: phone)
         apiClient.setUserId(user.userId)
 
         if let phone = user.phone, !phone.isEmpty {
@@ -384,7 +389,7 @@ public final class TraceManager: NSObject, TraceManagerProtocol {
             let user = dataStore.getUser()
             client?.publish(json: TraceLocationPayload.completedTripJson(
                 tripId: tripId, location: location,
-                userId: user?.userId, companyId: user?.companyId, userName: user?.name
+                userId: user?.userId, companyId: user?.companyId, userName: nil
             ))
         }
         dataStore.stopSdkTracking()
@@ -650,7 +655,7 @@ public final class TraceManager: NSObject, TraceManagerProtocol {
             for row in batch {
                 client.publish(json: TraceLocationPayload.backfilled(
                     json: row.json,
-                    userId: user.userId, companyId: user.companyId, userName: user.name
+                    userId: user.userId, companyId: user.companyId, userName: nil
                 ))
             }
             // Checked *before* the delete: a link that dropped mid-batch means
@@ -752,7 +757,7 @@ public final class TraceManager: NSObject, TraceManagerProtocol {
         let tripId = dataStore.getLocalTripId()
         let json = TraceLocationPayload.json(
             location: location, userId: user?.userId, companyId: user?.companyId,
-            userName: user?.name, tripId: tripId
+            userName: nil, tripId: tripId
         )
 
         connectMqttIfPossible()
@@ -870,7 +875,7 @@ public final class TraceManager: NSObject, TraceManagerProtocol {
             let client = TraceMqttClient(
                 host: host, port: port,
                 userId: user.userId, companyId: companyId, groupId: group, deviceUUID: deviceToken,
-                userName: user.name, mqttUsername: mqttUsername, mqttPassword: mqttPassword,
+                userName: nil, mqttUsername: mqttUsername, mqttPassword: mqttPassword,
                 // The local, not a fresh read: the fingerprint above was built
                 // from it, and a `setMqttClientIdPrefix` landing in between
                 // would otherwise record a fingerprint that doesn't describe

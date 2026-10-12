@@ -109,7 +109,7 @@ struct ContentView: View {
     private func signIn() async {
         print("signIn() called")
         do {
-            user = try await BarikoiTrace.setOrCreateUser(name: nil, email: nil, phone: phone)
+            user = try await BarikoiTrace.setOrCreateUser(phone: phone)
             statusMessage = "Signed in."
             print("Signed in successfully")
         } catch {

@@ -33,18 +33,13 @@ public final class TraceApiClient {
     /// POST /sdk/authenticate — logs in or creates a trace user. Throws
     /// `.noCompanyError()` if the account has zero company associations,
     /// mirroring `TraceApiClient.kt`'s `companies[0]` requirement.
-    public func authenticate(name: String?, email: String?, phone: String) async throws -> TraceUser {
-        var body: [String: Any] = ["api_key": apiKey ?? ""]
-        if let name, !name.isEmpty { body["name"] = name }
-        if let email, !email.isEmpty { body["email"] = email }
-        body["phone"] = phone
+    public func authenticate(phone: String) async throws -> TraceUser {
+        let body: [String: Any] = ["api_key": apiKey ?? "", "phone": phone]
 
         let json = try await post(path: TraceApiRoutes.authenticate, body: body)
 
         guard let userJson = json["user"] as? [String: Any],
               let id = userJson["_id"] as? String,
-              let userName = userJson["name"] as? String,
-              let userEmail = userJson["email"] as? String,
               let companies = userJson["companies"] as? [[String: Any]] else {
             throw TraceError.jsonError("Malformed authenticate() response")
         }
@@ -55,12 +50,17 @@ public final class TraceApiClient {
         }
 
         let user = TraceUser(
-            userId: id, name: userName, email: userEmail, phone: phone,
+            userId: id, phone: phone,
             companyId: companyId, group: groupId
         )
         userId = user.userId
         dataStore.setUser(user)
         return user
+    }
+
+    @available(*, deprecated, message: "name and email are no longer supported by the backend; use authenticate(phone:)")
+    public func authenticate(name: String?, email: String?, phone: String) async throws -> TraceUser {
+        try await authenticate(phone: phone)
     }
 
     /// POST /sdk/company/settings — pulls the company-level `TraceMode` override.
