@@ -183,6 +183,7 @@ set afterwards arrive too late for that first client.
 | `baseURL` | `https://api.trace.bmapsbd.com/api/v1/` | trailing slash normalized |
 | `mqttURL` | `tcp://broker.trace.bmapsbd.com:1883` | **plaintext** — see below |
 | `mqttClientIdPrefix` | `iOSClient-` | Android uses `AndroidClient-` |
+| `notificationTitle` / `notificationContent` | `nil` | optional background notification labels (cross-platform parity with Android) |
 
 `mqttURL` accepts `tcp`/`mqtt`/`ws` (plaintext) and `ssl`/`mqtts`/`tls`/`wss`
 (TLS); port defaults to 1883 or 8883 by scheme. `config.isMqttTransportEncrypted`
@@ -297,17 +298,13 @@ if !BarikoiTrace.hasBackgroundPermission() {
     BarikoiTrace.requestBackgroundLocationPermission()
 }
 
-// 2. Authenticate. Returns the user, and pulls the company's remote
-//    TraceMode settings as a best-effort side effect.
-let user = try await BarikoiTrace.setOrCreateUser(
-    name: "Jane",
-    email: nil,
-    phone: "+8801700000000"
-)
+// 2. Authenticate
+var user = try await BarikoiTrace.setOrCreateUser(phone: "+8801700000000")
+// Optionally update user display name live:
+user = try await BarikoiTrace.updateUserName("Jane Doe")
 
 // 3. Track
-BarikoiTrace.startTracking(.active)                  // preset
-BarikoiTrace.startTracking(.active, withTrip: true)  // + a local trip UUID
+BarikoiTrace.startTracking(.active, withTrip: true, source: .local)
 
 // 4. Consume live updates. Multi-consumer — collect from as many
 //    places as you need.
@@ -323,8 +320,9 @@ if BarikoiTrace.isBackgroundTrackingDegraded {
     // App Refresh off. Show a banner — background delivery is unreliable.
 }
 
-// 6. Stop
+// 6. Stop and logout
 BarikoiTrace.stopTracking()
+BarikoiTrace.logout() // clears local trip, wipes offline queued locations, and removes cached user
 ```
 
 ---
@@ -360,9 +358,11 @@ production, say — and re-point the MQTT client on the next fix.
 
 | Method | Notes |
 |---|---|
-| `setOrCreateUser(name:email:phone:) async throws -> TraceUser` | Authenticates or creates. Throws `TraceError`. Also refreshes remote settings — that refresh swallows its own failure by design (a secondary step should not fail the primary auth call). |
+| `setOrCreateUser(phone:) async throws -> TraceUser` | Authenticates or creates. Throws `TraceError`. Also refreshes remote settings. Overload `setOrCreateUser(name:email:phone:)` is deprecated. |
+| `updateUserName(_ name: String) async throws -> TraceUser` | Updates the user's name live in storage and in outgoing MQTT payloads. |
 | `getUser() -> TraceUser?` | Cached user, no network. |
 | `getUserId() -> String?` | |
+| `logout()` | Signs out: stops tracking, cancels trip, wipes offline queued locations, and clears cached credentials. |
 
 `TraceUser` carries `userId`, `name`, `email`, `phone`, `companyId`, `group`,
 `lastLat`, `lastLon`, `updatedAt` (epoch ms). `companyId` and `group` are
@@ -384,7 +384,8 @@ required — MQTT topic resolution needs them, so authentication throws
 
 | Method | Notes |
 |---|---|
-| `startTracking(_ mode: TraceMode, withTrip: Bool = false)` | `withTrip` attaches a locally generated trip UUID. |
+| `startTracking(_ mode: TraceMode, withTrip: Bool = false, source: TraceModeSource = .local)` | `withTrip` attaches a locally generated trip UUID. `source` specifies `.local` (default) or `.remote` (fetches/applies remote settings). |
+| `getTraceModeSource() -> TraceModeSource` | Returns the active mode source (`.local` or `.remote`). |
 | `stopTracking()` | If a trip was open, publishes the completed-trip payload. |
 | `setTraceMode(_:)` | Applies live if already tracking. |
 | `refreshTracking()` | Re-applies the stored mode. Only needed if the mode changed through some path other than `setTraceMode`. |
