@@ -112,6 +112,14 @@ public enum BarikoiTrace {
         try await setOrCreateUser(phone: phone)
     }
 
+    public static func updateUserName(_ name: String) async throws -> TraceUser {
+        try await TraceManager.shared.updateUserName(name)
+    }
+
+    public static func logout() {
+        TraceManager.shared.logout()
+    }
+
     public static func getUser() -> TraceUser? { TraceManager.shared.getUser() }
     public static func getUserId() -> String? { TraceManager.shared.getUserId() }
 
@@ -156,8 +164,12 @@ public enum BarikoiTrace {
 
     public static func setTraceMode(_ mode: TraceMode) { TraceManager.shared.setTraceMode(mode) }
 
-    public static func startTracking(_ mode: TraceMode, withTrip: Bool = false) {
-        TraceManager.shared.startTracking(mode: mode, withTrip: withTrip)
+    public static func startTracking(_ mode: TraceMode, withTrip: Bool = false, source: TraceModeSource = .local) {
+        TraceManager.shared.startTracking(mode: mode, withTrip: withTrip, source: source)
+    }
+
+    public static func getTraceModeSource() -> TraceModeSource {
+        TraceManager.shared.getTraceModeSource()
     }
 
     public static func stopTracking() { TraceManager.shared.stopTracking() }

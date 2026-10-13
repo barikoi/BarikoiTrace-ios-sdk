@@ -182,4 +182,36 @@ final class TraceDataStoreTests: XCTestCase {
         XCTAssertEqual(fetched.startTime, TraceMode.dayStart)
         XCTAssertEqual(fetched.endTime, TraceMode.dayEnd)
     }
+
+    func testUserNameUpdateAndRoundtrip() {
+        XCTAssertNil(store.getUserName())
+        let user = TraceUser(userId: "u1", name: "Original", phone: "+8801700000000")
+        store.setUser(user)
+        XCTAssertEqual(store.getUser()?.name, "Original")
+        XCTAssertEqual(store.getUserName(), "Original")
+
+        store.updateUserName("Updated Name")
+        XCTAssertEqual(store.getUser()?.name, "Updated Name")
+        XCTAssertEqual(store.getUserName(), "Updated Name")
+    }
+
+    func testTraceModeSourceRoundtrip() {
+        XCTAssertEqual(store.getTraceModeSource(), .local)
+
+        store.setTraceModeSource(.remote)
+        XCTAssertEqual(store.getTraceModeSource(), .remote)
+
+        store.setTraceModeSource(.local)
+        XCTAssertEqual(store.getTraceModeSource(), .local)
+    }
+
+    func testTraceModeFromRemoteRoundtrip() {
+        XCTAssertFalse(store.isTraceModeFromRemote())
+
+        store.setTraceModeFromRemote(.active)
+        XCTAssertTrue(store.isTraceModeFromRemote())
+
+        store.setTraceMode(.active)
+        XCTAssertFalse(store.isTraceModeFromRemote())
+    }
 }

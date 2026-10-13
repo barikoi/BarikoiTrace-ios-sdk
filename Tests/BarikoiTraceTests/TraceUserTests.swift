@@ -89,4 +89,30 @@ final class TraceUserTests: XCTestCase {
         XCTAssertNil(retrieved?.companyId)
         XCTAssertNil(retrieved?.group)
     }
+
+    func testUserWithNameInitialization() {
+        let user = TraceUser(
+            userId: "u-300",
+            name: "Alice",
+            phone: "01700000000"
+        )
+        XCTAssertEqual(user.userId, "u-300")
+        XCTAssertEqual(user.name, "Alice")
+        XCTAssertEqual(user.phone, "01700000000")
+    }
+
+    func testPayloadWithUserNameContainsUserNameKey() {
+        let loc = CLLocation(latitude: 23.8103, longitude: 90.4125)
+        let payload = TraceLocationPayload.dictionary(
+            location: loc,
+            userId: "u-1",
+            companyId: "c-1",
+            userName: "Alice",
+            tripId: nil
+        )
+
+        XCTAssertEqual(payload[TraceLocationPayload.Key.userName] as? String, "Alice")
+        XCTAssertEqual(payload[TraceLocationPayload.Key.userId] as? String, "u-1")
+        XCTAssertEqual(payload[TraceLocationPayload.Key.companyId] as? String, "c-1")
+    }
 }

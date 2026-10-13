@@ -39,6 +39,8 @@ public final class TraceDataStore {
         static let debug = "bkoi_trace_debug"
         static let notificationTitle = "bkoi_trace_notification_title"
         static let notificationContent = "bkoi_trace_notification_content"
+        static let traceModeSource = "bkoi_trace_mode_source"
+        static let traceModeRemote = "bkoi_trace_mode_remote"
     }
 
     private enum SecureKeys {
@@ -108,6 +110,7 @@ public final class TraceDataStore {
 
     public func setUser(_ user: TraceUser) {
         keychain.set(user.userId, forKey: SecureKeys.userId)
+        if let v = user.name { keychain.set(v, forKey: SecureKeys.userName) }
         if let v = user.phone { keychain.set(v, forKey: SecureKeys.userPhone) }
         if let v = user.companyId { keychain.set(v, forKey: SecureKeys.userCompany) }
         if let v = user.group { keychain.set(v, forKey: SecureKeys.userGroup) }
@@ -118,6 +121,7 @@ public final class TraceDataStore {
         guard let userId = keychain.get(SecureKeys.userId) else { return nil }
         return TraceUser(
             userId: userId,
+            name: keychain.get(SecureKeys.userName),
             phone: keychain.get(SecureKeys.userPhone),
             companyId: keychain.get(SecureKeys.userCompany),
             group: keychain.get(SecureKeys.userGroup),
@@ -125,10 +129,18 @@ public final class TraceDataStore {
         )
     }
 
+    public func updateUserName(_ name: String) {
+        keychain.set(name, forKey: SecureKeys.userName)
+    }
+
+    public func getUserName() -> String? {
+        keychain.get(SecureKeys.userName)
+    }
+
     public func getUserId() -> String? { keychain.get(SecureKeys.userId) }
 
     public func clearUser() {
-        [SecureKeys.userId,
+        [SecureKeys.userId, SecureKeys.userName, SecureKeys.userEmail,
          SecureKeys.userPhone, SecureKeys.userCompany, SecureKeys.userGroup,
          SecureKeys.userUpdatedAt].forEach(keychain.remove)
     }
@@ -223,6 +235,7 @@ public final class TraceDataStore {
         defaults.set(mode.pingSyncInterval, forKey: Keys.pingSyncInterval)
         defaults.set(mode.trackingMode.rawValue, forKey: Keys.trackingType)
         defaults.set(mode.debug, forKey: Keys.debug)
+        defaults.set(false, forKey: Keys.traceModeRemote)
         // `getTraceMode()` reads `offline` back out, but this method never
         // wrote it — a mode built with `.setOfflineSync(false)` was silently
         // ignored. Written and read on the same key now, and that key is the
@@ -297,13 +310,36 @@ public final class TraceDataStore {
     public func getTrackingType() -> Int { defaults.integer(forKey: Keys.trackingType) }
     public func getUpdateInterval() -> Int { defaults.integer(forKey: Keys.updateInterval) }
 
+    // MARK: - TraceModeSource
+
+    public func setTraceModeSource(_ source: TraceModeSource) {
+        defaults.set(source.rawValue, forKey: Keys.traceModeSource)
+    }
+
+    public func getTraceModeSource() -> TraceModeSource {
+        guard let raw = defaults.string(forKey: Keys.traceModeSource),
+              let source = TraceModeSource(rawValue: raw) else {
+            return .local
+        }
+        return source
+    }
+
+    public func setTraceModeFromRemote(_ mode: TraceMode) {
+        setTraceModeWithTiming(mode)
+        defaults.set(true, forKey: Keys.traceModeRemote)
+    }
+
+    public func isTraceModeFromRemote() -> Bool {
+        defaults.bool(forKey: Keys.traceModeRemote)
+    }
+
     public func clearTraceMode() {
         // `modeOfflineSync` belongs to the mode, so it clears with it —
         // otherwise a mode with `offline == false` would keep the durable
         // queue disabled after the mode itself was cleared.
         [Keys.desiredAccuracy, Keys.updateInterval, Keys.distanceFilter, Keys.stopDuration,
          Keys.accuracyFilter, Keys.pingSyncInterval, Keys.trackingType, Keys.debug,
-         Keys.modeOfflineSync]
+         Keys.modeOfflineSync, Keys.traceModeRemote]
             .forEach(defaults.removeObject)
     }
 
@@ -311,11 +347,13 @@ public final class TraceDataStore {
         clearTraceMode()
         defaults.removeObject(forKey: Keys.startTime)
         defaults.removeObject(forKey: Keys.endTime)
+        defaults.removeObject(forKey: Keys.traceModeSource)
     }
 
     public func stopSdkTracking() {
         setSdkTracking(false)
         clearTraceMode()
+        defaults.removeObject(forKey: Keys.traceModeSource)
     }
 
     // MARK: - Helpers

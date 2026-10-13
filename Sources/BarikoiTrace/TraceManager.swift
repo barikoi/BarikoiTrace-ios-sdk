@@ -147,7 +147,7 @@ public final class TraceManager: NSObject, TraceManagerProtocol {
         // (ordinary relaunch, not the significant-location-change path —
         // that one goes through handleLaunch(options:) below).
         if dataStore.isSdkTracking() {
-            startTracking(mode: dataStore.getTraceMode(), withTrip: dataStore.getLocalTripId() != nil)
+            startTracking(mode: dataStore.getTraceMode(), withTrip: dataStore.getLocalTripId() != nil, source: dataStore.getTraceModeSource())
         }
     }
 
@@ -215,31 +215,59 @@ public final class TraceManager: NSObject, TraceManagerProtocol {
         guard !phone.isEmpty else { throw TraceError.noDataError() }
         guard let apiKey = dataStore.getApiKey(), !apiKey.isEmpty else { throw TraceError.noKeyError() }
 
-        // 24h local-cache short-circuit, mirrors LocTraceManager.kt.
-        if let cached = dataStore.getUser(), cached.phone == phone,
-           (Date().timeIntervalSince1970 * 1000 - cached.updatedAt) < 24 * 60 * 60 * 1000 {
-            return cached
+        let cached = dataStore.getUser()
+        let switchingUser = cached != nil && phone != cached?.phone
+        let wasTracking = dataStore.isSdkTracking()
+        if switchingUser {
+            offlineStore.deleteAll()
         }
 
-        // Waits briefly for the path monitor's first real update rather than
-        // deciding from its seed value — this runs seconds after launch, where
-        // the seed was previously the only thing available.
-        guard await NetworkChecker.isNetworkAvailable(waitingUpTo: 1) else { throw TraceError.networkError() }
+        // 24h local-cache short-circuit, mirrors LocTraceManager.kt.
+        let user: TraceUser
+        if let cached, cached.phone == phone,
+           (Date().timeIntervalSince1970 * 1000 - cached.updatedAt) < 24 * 60 * 60 * 1000 {
+            user = cached
+        } else {
+            // Waits briefly for the path monitor's first real update rather than
+            // deciding from its seed value — this runs seconds after launch, where
+            // the seed was previously the only thing available.
+            guard await NetworkChecker.isNetworkAvailable(waitingUpTo: 1) else { throw TraceError.networkError() }
 
-        let user = try await apiClient.authenticate(phone: phone)
-        apiClient.setUserId(user.userId)
+            user = try await apiClient.authenticate(phone: phone)
+            apiClient.setUserId(user.userId)
+        }
 
-        if let phone = user.phone, !phone.isEmpty {
-            do {
-                let mode = try await apiClient.getCompanySettings(phone: phone)
-                dataStore.setTraceModeWithTiming(mode)
-            } catch {
-                // Deliberately swallowed — see the method doc comment above.
-                log(level: "WARN", tag: "TraceManager", message: "Failed to fetch remote settings: \(error)")
-            }
+        if switchingUser && wasTracking {
+            refreshTracking()
+        }
+
+        if dataStore.getTraceModeSource() == .remote {
+            await fetchAndApplyRemoteSettings()
         }
 
         return user
+    }
+
+    public func logout() {
+        stopTracking()
+        offlineStore.deleteAll()
+        dataStore.clearUser()
+    }
+
+    public func getTraceModeSource() -> TraceModeSource {
+        dataStore.getTraceModeSource()
+    }
+
+    public func updateUserName(_ name: String) async throws -> TraceUser {
+        guard let user = dataStore.getUser() else { throw TraceError.noUserError() }
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { throw TraceError.noDataError() }
+
+        dataStore.updateUserName(trimmed)
+        mqttLock.lock()
+        rejectedFingerprint = nil
+        mqttLock.unlock()
+        return dataStore.getUser() ?? user
     }
 
     public func getUser() -> TraceUser? { dataStore.getUser() }
@@ -303,7 +331,7 @@ public final class TraceManager: NSObject, TraceManagerProtocol {
         backgroundCoordinator.refresh(mode: dataStore.getTraceMode())
     }
 
-    public func startTracking(mode: TraceMode, withTrip: Bool = false) {
+    public func startTracking(mode: TraceMode, withTrip: Bool = false, source: TraceModeSource = .local) {
         guard let userId = dataStore.getUserId(), !userId.isEmpty else {
             log(level: "WARN", tag: "TraceManager", message: TraceError.noUserError().message)
             return
@@ -335,8 +363,13 @@ public final class TraceManager: NSObject, TraceManagerProtocol {
         // started.
         grantMqttPermit()
 
+        let keepStoredRemote = source == .remote && dataStore.isTraceModeFromRemote()
+
         dataStore.setSdkTracking(true)
-        dataStore.setTraceMode(mode)
+        dataStore.setTraceModeSource(source)
+        if !keepStoredRemote {
+            dataStore.setTraceMode(mode)
+        }
 
         if withTrip {
             if dataStore.getLocalTripId() == nil {
@@ -347,7 +380,11 @@ public final class TraceManager: NSObject, TraceManagerProtocol {
         }
 
         connectMqttIfPossible()
-        backgroundCoordinator.start(mode: mode)
+        backgroundCoordinator.start(mode: keepStoredRemote ? dataStore.getTraceMode() : mode)
+
+        if source == .remote {
+            Task { await fetchAndApplyRemoteSettings() }
+        }
     }
 
     public func stopTracking() {
@@ -389,7 +426,7 @@ public final class TraceManager: NSObject, TraceManagerProtocol {
             let user = dataStore.getUser()
             client?.publish(json: TraceLocationPayload.completedTripJson(
                 tripId: tripId, location: location,
-                userId: user?.userId, companyId: user?.companyId, userName: nil
+                userId: user?.userId, companyId: user?.companyId, userName: user?.name ?? dataStore.getUserName()
             ))
         }
         dataStore.stopSdkTracking()
@@ -517,8 +554,30 @@ public final class TraceManager: NSObject, TraceManagerProtocol {
             throw TraceError.noUserError()
         }
         let mode = try await apiClient.getCompanySettings(phone: phone)
-        dataStore.setTraceModeWithTiming(mode)
+        if dataStore.getTraceModeSource() == .remote {
+            dataStore.setTraceModeFromRemote(mode)
+            if dataStore.isSdkTracking() {
+                backgroundCoordinator.refresh(mode: mode)
+            }
+        }
         return mode
+    }
+
+    internal func fetchAndApplyRemoteSettings() async {
+        guard let user = dataStore.getUser(), let phone = user.phone, !phone.isEmpty else { return }
+        do {
+            let mode = try await apiClient.getCompanySettings(phone: phone)
+            dataStore.setTraceModeFromRemote(mode)
+            if dataStore.isSdkTracking() {
+                backgroundCoordinator.refresh(mode: mode)
+            }
+            log(
+                level: "INFO", tag: "TraceManager",
+                message: "Remote trace settings applied: interval=\(mode.updateInterval)s distance=\(mode.distanceFilter)m accuracyFilter=\(mode.accuracyFilter)m"
+            )
+        } catch {
+            log(level: "WARN", tag: "TraceManager", message: "Remote settings fetch failed, keeping current mode: \(error)")
+        }
     }
 
     public var isBackgroundTrackingDegraded: Bool { backgroundCoordinator.isBackgroundTrackingDegraded }
@@ -660,7 +719,7 @@ public final class TraceManager: NSObject, TraceManagerProtocol {
             for row in batch {
                 client.publish(json: TraceLocationPayload.backfilled(
                     json: row.json,
-                    userId: user.userId, companyId: user.companyId, userName: nil
+                    userId: user.userId, companyId: user.companyId, userName: user.name ?? dataStore.getUserName()
                 ))
             }
             // Checked *before* the delete: a link that dropped mid-batch means

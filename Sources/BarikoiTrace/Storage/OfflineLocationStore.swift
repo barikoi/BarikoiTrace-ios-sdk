@@ -100,4 +100,13 @@ public final class OfflineLocationStore {
             return sqlite3_exec(db, sql, nil, nil, nil) == SQLITE_OK
         }
     }
+
+    @discardableResult
+    public func deleteAll() -> Bool {
+        queue.sync {
+            guard let db else { return false }
+            let sql = "DELETE FROM offline_location;"
+            return sqlite3_exec(db, sql, nil, nil, nil) == SQLITE_OK
+        }
+    }
 }

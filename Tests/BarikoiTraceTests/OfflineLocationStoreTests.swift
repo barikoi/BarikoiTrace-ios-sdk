@@ -59,4 +59,15 @@ final class OfflineLocationStoreTests: XCTestCase {
         store.deleteBatch(limit: 100) // no rows — should not crash
         XCTAssertEqual(store.count(), 0)
     }
+
+    func testDeleteAllClearsEntireDatabase() {
+        let store = makeStore()
+        for i in 0..<10 {
+            store.insert(json: "{\"seq\":\(i)}")
+        }
+        XCTAssertEqual(store.count(), 10)
+
+        store.deleteAll()
+        XCTAssertEqual(store.count(), 0)
+    }
 }
