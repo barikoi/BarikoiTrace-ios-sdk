@@ -251,6 +251,7 @@ public final class TraceManager: NSObject, TraceManagerProtocol {
     public func logout() {
         stopTracking()
         offlineStore.deleteAll()
+        dataStore.clearLocalTrip()
         dataStore.clearUser()
     }
 
