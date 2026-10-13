@@ -54,4 +54,12 @@ final class TraceModeTests: XCTestCase {
         XCTAssertEqual(TraceMode.DesiredAccuracy.fromString("not-a-value"), .high)
         XCTAssertEqual(TraceMode.DesiredAccuracy.fromString("MEDIUM"), .medium)
     }
+
+    func testTraceModeSourceRawValuesAndParsing() {
+        XCTAssertEqual(TraceModeSource.local.rawValue, "LOCAL")
+        XCTAssertEqual(TraceModeSource.remote.rawValue, "REMOTE")
+        XCTAssertEqual(TraceModeSource(rawValue: "LOCAL"), .local)
+        XCTAssertEqual(TraceModeSource(rawValue: "REMOTE"), .remote)
+        XCTAssertNil(TraceModeSource(rawValue: "invalid"))
+    }
 }

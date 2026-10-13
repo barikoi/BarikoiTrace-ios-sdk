@@ -214,4 +214,34 @@ final class TraceDataStoreTests: XCTestCase {
         store.setTraceMode(.active)
         XCTAssertFalse(store.isTraceModeFromRemote())
     }
+
+    func testClearUserRemovesUserName() {
+        let user = TraceUser(userId: "u1", name: "Alice", phone: "+8801700000000")
+        store.setUser(user)
+        XCTAssertEqual(store.getUserName(), "Alice")
+
+        store.clearUser()
+        XCTAssertNil(store.getUser())
+        XCTAssertNil(store.getUserName())
+    }
+
+    func testStopSdkTrackingResetsTraceModeSourceToLocal() {
+        store.setTraceModeSource(.remote)
+        store.setTraceModeFromRemote(.active)
+        XCTAssertEqual(store.getTraceModeSource(), .remote)
+        XCTAssertTrue(store.isTraceModeFromRemote())
+
+        store.stopSdkTracking()
+        XCTAssertEqual(store.getTraceModeSource(), .local)
+        XCTAssertFalse(store.isTraceModeFromRemote())
+    }
+
+    func testClearTraceModeWithTimingResetsTraceModeSourceToLocal() {
+        store.setTraceModeSource(.remote)
+        store.setTraceModeFromRemote(.active)
+
+        store.clearTraceModeWithTiming()
+        XCTAssertEqual(store.getTraceModeSource(), .local)
+        XCTAssertFalse(store.isTraceModeFromRemote())
+    }
 }

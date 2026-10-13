@@ -266,4 +266,35 @@ final class MqttPayloadContractTests: XCTestCase {
             garbage
         )
     }
+
+    func testDictionaryWithUserNameAndTripId() {
+        let loc = makeLocation()
+        let dict = TraceLocationPayload.dictionary(
+            location: loc,
+            userId: "u-1",
+            companyId: "c-1",
+            userName: "Alice",
+            tripId: "trip-99"
+        )
+
+        XCTAssertEqual(dict["user_name"] as? String, "Alice")
+        XCTAssertEqual(dict["trip_id"] as? String, "trip-99")
+        XCTAssertEqual(dict["trip_status"] as? String, "active")
+        XCTAssertEqual(dict["user_id"] as? String, "u-1")
+    }
+
+    func testDictionaryWithoutUserNameOmitsUserName() {
+        let loc = makeLocation()
+        let dict = TraceLocationPayload.dictionary(
+            location: loc,
+            userId: "u-1",
+            companyId: "c-1",
+            userName: nil,
+            tripId: nil
+        )
+
+        XCTAssertNil(dict["user_name"])
+        XCTAssertNil(dict["trip_id"])
+        XCTAssertNil(dict["trip_status"])
+    }
 }
