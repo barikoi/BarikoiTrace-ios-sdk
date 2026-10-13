@@ -33,7 +33,9 @@ struct ContentView: View {
     @StateObject private var permissions = LocationPermissionRequester()
 
     @State private var phone = "+8801700000000"
+    @State private var name = ""
     @State private var user: TraceUser?
+    @State private var modeSource: TraceModeSource = .local
     @State private var isTracking = false
     @State private var lastLocation: CLLocation?
     @State private var statusMessage = ""
@@ -41,12 +43,16 @@ struct ContentView: View {
     var body: some View {
         NavigationView {
             Form {
-                Section("1. Authenticate") {
+                Section("1. Authenticate & User") {
                     TextField("Phone", text: $phone)
                         .keyboardType(.phonePad)
+                    TextField("Name (optional)", text: $name)
                     Button("Sign in / create user") { Task { await signIn() } }
                     if let user {
-                        Text("Signed in as \(user.userId)").foregroundStyle(.secondary)
+                        Text("Signed in as \(user.userId)\(user.name.map { " (\($0))" } ?? "")")
+                            .foregroundStyle(.secondary)
+                        Button("Update Name") { Task { await updateUserName() } }
+                        Button("Log out", role: .destructive) { logout() }
                     }
                 }
 
@@ -63,6 +69,13 @@ struct ContentView: View {
                 }
 
                 Section("3. Tracking") {
+                    Picker("Mode source", selection: $modeSource) {
+                        Text("Local").tag(TraceModeSource.local)
+                        Text("Remote").tag(TraceModeSource.remote)
+                    }
+                    .pickerStyle(.segmented)
+                    .disabled(isTracking)
+
                     Toggle("Tracking active", isOn: Binding(
                         get: { isTracking },
                         set: { toggleTracking($0) }
@@ -110,7 +123,10 @@ struct ContentView: View {
         print("signIn() called")
         do {
             user = try await BarikoiTrace.setOrCreateUser(phone: phone)
-            statusMessage = "Signed in."
+            if let userName = user?.name {
+                name = userName
+            }
+            statusMessage = "Signed in as \(user?.userId ?? "")."
             print("Signed in successfully")
         } catch {
             statusMessage = "Sign-in failed: \(error)"
@@ -118,9 +134,31 @@ struct ContentView: View {
         }
     }
 
+    @MainActor
+    private func updateUserName() async {
+        let trimmed = name.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty else {
+            statusMessage = "Name cannot be empty."
+            return
+        }
+        do {
+            user = try await BarikoiTrace.updateUserName(trimmed)
+            statusMessage = "User name updated to \(user?.name ?? "")."
+        } catch {
+            statusMessage = "Update name failed: \(error)"
+        }
+    }
+
+    private func logout() {
+        BarikoiTrace.logout()
+        user = nil
+        isTracking = false
+        statusMessage = "Logged out. Session cleared."
+    }
+
     private func toggleTracking(_ enabled: Bool) {
         if enabled {
-            BarikoiTrace.startTracking(.active, withTrip: true)
+            BarikoiTrace.startTracking(.active, withTrip: true, source: modeSource)
         } else {
             BarikoiTrace.stopTracking()
         }
