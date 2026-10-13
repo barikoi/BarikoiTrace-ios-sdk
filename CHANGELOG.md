@@ -1,4 +1,4 @@
-## 0.4.1 — Unreleased
+## 0.7.0 — Unreleased
 
 * **`BarikoiTrace.setApiKey(_:)`** — swaps the API key for the running process
   (persisted + applied to the live `TraceApiClient`) without re-running

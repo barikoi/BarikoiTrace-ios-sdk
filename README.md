@@ -45,7 +45,7 @@ Next Minor" → select the `BarikoiTrace` product.
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/barikoi/BarikoiTrace-ios-sdk.git", from: "0.4.1")
+    .package(url: "https://github.com/barikoi/BarikoiTrace-ios-sdk.git", from: "0.7.0")
 ]
 ```
 
@@ -62,7 +62,7 @@ Below `1.0.0`, SPM treats a **minor** bump as breaking: `from: "0.4.0"` picks up
 `0.4.x` but not `0.5.0`. See [`docs/RELEASING.md`](docs/RELEASING.md).
 
 The iOS and Android SDKs are released **in lockstep on the same version
-number** — `0.4.1` here pairs with `com.github.barikoi:barikoitrace:0.4.1` on
+number** — `0.7.0` here pairs with `com.github.barikoi:barikoitrace:0.7.0` on
 [Android](https://github.com/barikoi/BarikoiTrace-android-sdk). One number
 identifies a matched pair, which is what makes a shared Flutter/React Native
 wrapper tractable.
